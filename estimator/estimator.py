@@ -6,11 +6,11 @@ class Estimator:
 
     def isWeightingApplicable(self):
         """ 当应用非最小拟合时决定点是否可以加权的标志 """
-        pass
+        return True
 
     def inlierLimit(self):
         """ 对非最小样本进行内部RANSAC时的样本大小 """
-        pass
+        return 7 * self.sampleSize()
 
     def sampleSize(self):
         """ 估计模型所需的最小样本的大小 """

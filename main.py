@@ -56,6 +56,25 @@ def homography_gcransac(kps1, kps2, tentatives, h1, w1, h2, w2):
     print(deepcopy(mask).astype(np.float32).sum(), 'inliers found')
     return H, mask
 
+def fundamental_cv2(kps1, kps2, tentatives):
+    src_pts = np.float32(
+        [kps1[m.queryIdx].pt for m in tentatives]).reshape(-1, 1, 2)
+    dst_pts = np.float32(
+        [kps2[m.trainIdx].pt for m in tentatives]).reshape(-1, 1, 2)
+    H, mask = cv2.findFundamentalMat(src_pts, dst_pts, cv2.RANSAC, 1.0)
+    print(deepcopy(mask).astype(np.float32).sum(), 'inliers found')
+    return H, mask
+
+def fundamental_gcransac(kps1, kps2, tentatives, h1, w1, h2, w2):
+    src_pts = np.float32(
+        [kps1[m.queryIdx].pt for m in tentatives]).reshape(-1, 2)
+    dst_pts = np.float32(
+        [kps2[m.trainIdx].pt for m in tentatives]).reshape(-1, 2)
+    H, mask = gc.findFundamentalMat(src_pts, dst_pts, h1, w1, h2, w2, 1.0)
+    print(deepcopy(mask).astype(np.float32).sum(), 'inliers found')
+    return H, mask
+
+
 if __name__ == "__main__":
     # 加载 src_img dst_img
     src_img = cv2.cvtColor(cv2.imread('img/grafA.png'), cv2.COLOR_BGR2RGB)
@@ -97,4 +116,40 @@ if __name__ == "__main__":
         draw_matches(keypoints1, keypoints2, tentatives, src_img, dst_img, mag_H, mag_mask, "GC-RANSAC")
         plt.show()
 
-    testHomography()
+    def testFundamentalMat():
+        # 测试 cv-ransac
+        t = time()
+        cv2_H, cv2_mask = fundamental_cv2(keypoints1,
+                                          keypoints2,
+                                          tentatives)
+        print(time()-t, ' sec cv2')
+
+        # 测试 gc-ransac
+        t = time()
+        mag_H, mag_mask = fundamental_gcransac(keypoints1,
+                                               keypoints2,
+                                               tentatives,
+                                               src_img.shape[0],
+                                               src_img.shape[1],
+                                               dst_img.shape[0],
+                                               dst_img.shape[1])
+        print(time()-t, ' sec gc-ransac')
+
+        # 绘制匹配结果图像
+        draw_matches(keypoints1, keypoints2, tentatives, src_img, dst_img, cv2_H, cv2_mask, "CV2-RANSAC")
+        draw_matches(keypoints1, keypoints2, tentatives, src_img, dst_img, mag_H, mag_mask, "GC-RANSAC")
+        plt.show()
+    
+    while True:
+        print("1.Homography\n2.FundamentalMatrix\n3.EssentialMatrix\n0:exit\nPlease input try to solve:")
+        option = int(input())
+        print("\n")
+        if option == 1:
+            testHomography()
+        elif option == 2:
+            testFundamentalMat()
+        elif option == 0:
+            break
+        else:
+            continue
+        print("\n")

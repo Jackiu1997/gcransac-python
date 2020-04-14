@@ -17,14 +17,6 @@ class EstimatorHomography(Estimator):
         # 用于估计非最小样本模型的估计器
         self.non_minimal_solver = minimalSolver()
 
-    def isWeightingApplicable(self):
-        """ 当应用非最小拟合时决定点是否可以加权的标志 """
-        return True
-
-    def inlierLimit(self):
-        """ 对非最小样本进行内部RANSAC时的样本大小 """
-        return 7 * self.sampleSize()
-
     def sampleSize(self):
         """ 估计模型所需的最小样本的大小 """
         return self.minimal_solver.sampleSize()
@@ -80,14 +72,13 @@ class EstimatorHomography(Estimator):
             data, sample, sample_number)
 
         models = self.non_minimal_solver.estimateModel(normalized_points,
-                                                   None,
-                                                   sample_number,
-                                                   weights=weights)
+                                                       None,
+                                                       sample_number,
+                                                       weights=weights)
         # 估计基本矩阵的反归一化
         for model in models:
             model.descriptor = np.dot(np.linalg.inv(normalizing_transform_destination), model.descriptor)
             model.descriptor = np.dot(model.descriptor, normalizing_transform_source)
-                
         return models
 
     def residual(self, point, model):

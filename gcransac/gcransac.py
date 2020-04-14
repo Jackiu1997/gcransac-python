@@ -152,10 +152,10 @@ class GCRANSAC:
 
 				# 检查模型是否有效，无效则重新评估
 				result = self.estimator.isValidModel(model,
-										data=points,
-										inliers=inliers,
-										minimal_sample=sample,
-										threshold=self.settings.threshold)
+													 data=points,
+													 inliers=inliers,
+													 minimal_sample=sample,
+													 threshold=self.settings.threshold)
 				if isinstance(result, tuple):
 					model = result[1]
 				elif not result:
