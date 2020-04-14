@@ -32,13 +32,15 @@ class _GridCell:
         self.idx_along_axis_y2 = idx_along_axis_y2
 
         # 构造函数：cell轴数目一致 或 cell轴数目独立
-        cell_number_along_axis_x1, cell_number_along_axis_y1, cell_number_along_axis_x2, cell_number_along_axis_y2 = cell_number_along_axes
+        cell_number_along_axis_x1 = cell_number_along_axes[0]
+        cell_number_along_axis_y1 = cell_number_along_axes[1]
+        cell_number_along_axis_x2 = cell_number_along_axes[2]
+        cell_number_along_axis_y2 = cell_number_along_axes[3]
         
         self.index = self.idx_along_axis_x1 +\
             cell_number_along_axis_x1 * self.idx_along_axis_y1 +\
             cell_number_along_axis_x1 * cell_number_along_axis_y1 * self.idx_along_axis_x2 +\
-            cell_number_along_axis_x1 * cell_number_along_axis_y1 * \
-            cell_number_along_axis_x2 * self.idx_along_axis_y2
+            cell_number_along_axis_x1 * cell_number_along_axis_y1 * cell_number_along_axis_x2 * self.idx_along_axis_y2
 
     def __eq__(self, value):
         return (self.idx_along_axis_x1 == value.idx_along_axis_x1 and
@@ -78,7 +80,8 @@ class GridNeighborhoodGraph:
         self.cell_height_source_image = cell_height_source_image
         self.cell_width_destination_image = cell_width_destination_image
         self.cell_height_destination_image = cell_height_destination_image
-        self.cell_number_along_all_axes = cell_number_along_all_axes
+        self.cell_number_along_all_axes = [
+            cell_number_along_all_axes for i in range(4)]
         self.container = container      # 存储的点集
         self.neighbor_number = 0        # 所有相邻的点边
         self.grid = []                  # 存储 GridCell 集合

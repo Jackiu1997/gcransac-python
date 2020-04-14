@@ -98,4 +98,4 @@ class SolverHomographyFourPoint(SolverEngine):
         h.append(1.0)
 
         model = Homography(matrix=np.array(h).reshape((3,3)))
-        return model
+        return [model]

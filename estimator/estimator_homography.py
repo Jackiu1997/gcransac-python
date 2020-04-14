@@ -82,7 +82,7 @@ class EstimatorHomography(Estimator):
         models = self.non_minimal_solver.estimateModel(normalized_points,
                                                    None,
                                                    sample_number,
-                                                   weights_=weights)
+                                                   weights=weights)
         # 估计基本矩阵的反归一化
         for model in models:
             model.descriptor = np.dot(np.linalg.inv(normalizing_transform_destination), model.descriptor)

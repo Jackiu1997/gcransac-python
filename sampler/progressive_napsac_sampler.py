@@ -67,10 +67,10 @@ class ProgressiveNapsacSampler(Sampler):
 
         # PROSAC 采样器，用于选择初始点，即超球面的中心
         self.one_point_prosac_sampler = ProsacSampler(
-            container, 1, ransac_convergence_iterations_=self.point_number)
+            container, 1, ransac_convergence_iterations=self.point_number)
         # 当采样完全混合为全局采样时使用的 PROSAC 采样器
         self.prosac_sampler = ProsacSampler(
-            container, sample_size, ransac_convergence_iterations_=self.point_number)
+            container, sample_size, ransac_convergence_iterations=self.point_number)
 
         self.initialized = self.__initialize(container)
 
@@ -124,7 +124,6 @@ class ProgressiveNapsacSampler(Sampler):
         list
             采样的数据集合序号列表
         """
-        subset = [0 for i in range(sample_size)]
         self.kth_sample_number += 1
 
         if sample_size != self.sample_size:
@@ -185,14 +184,13 @@ class ProgressiveNapsacSampler(Sampler):
             subset.append(neighbors[subset_size_progressive_napsac - 1])    # 离起始点最远的相邻点
 
             for i in range(sample_size - 2):
-                subset_[i] = neighbors[subset[i]]               # 用点的索引替换相邻索引
+                subset[i] = neighbors[subset[i]]               # 用点的索引替换相邻索引
                 self.hits_per_point[subset[i]] += 1             # 增加每个选择点的命中率
             self.hits_per_point[subset[sample_size - 2]] += 1   # 增加每个选择点的命中率
+            return subset
         # 如果选择了最后一层，则使用 PROSAC 采样器进行全局采样
         else:
             self.prosac_sampler.setSampleNumber(self.kth_sample_number)
             subset = self.prosac_sampler.sample(pool, sample_size)
             subset[self.sample_size - 1] = initial_point
             return subset
-
-        return subset

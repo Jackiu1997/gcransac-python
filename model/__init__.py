@@ -1,1 +1,1 @@
-from .models import Model, FundamentalMatrix, EssentialMatrix, Homography, Pose6D
+from .models import Model, FundamentalMatrix, EssentialMatrix, Homography

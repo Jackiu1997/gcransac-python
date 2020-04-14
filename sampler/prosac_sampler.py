@@ -93,7 +93,7 @@ class ProsacSampler(Sampler):
         if sample_size != self.sample_size:
             print("采样错误，PROSAC采样器未被初始化")
             self.__incrementIterationNumber()
-            return None
+            return []
         
         # 如果 PROSAC 采样与 RANSAC，则采样均匀随机采样
         if self.kth_sample_number > self.ransac_convergence_iterations:
@@ -103,9 +103,9 @@ class ProsacSampler(Sampler):
             # 产生 PROSAC 样本 [0, subset_size-2]
             subset = self.random_generator.generateUniqueRandomSet(self.sample_size - 1)
             # 最后一个索引是当前使用的子集末尾的点的索引
-            subset[self.sample_size - 1] = self.subset_size - 1
+            subset.append(self.subset_size - 1)
             self.__incrementIterationNumber()
-            return 
+            return subset
             
     def setSampleNumber(self, k):
         """ 外部设置目前采样次数为第 k 次 PROSAC 采样"""

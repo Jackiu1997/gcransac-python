@@ -10,7 +10,7 @@ class UniformSampler(Sampler):
     def __init__(self, container_):
         super().__init__(container_)
         self.random_generator = UniformRandomGenerator()
-        self.initialized = self.initialize(container_)
+        self.initialized = self.__initialize(container_)
     
     def __initialize(self, container_):
         """ 初始化样本构建，必须在样本被调用前"""
