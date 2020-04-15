@@ -19,7 +19,7 @@ class EssentialMatrix(Model):
     """ 特征点匹配的本质矩阵模型 """
 
     def __init__(self, matrix=np.zeros([3, 3])):
-        super().__init__(matrix=matrix)
+        super().__init__()
         self.descriptor = matrix
 
 

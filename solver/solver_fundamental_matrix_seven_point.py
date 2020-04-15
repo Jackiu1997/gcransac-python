@@ -47,46 +47,36 @@ class SolverFundamentalMatrixSevenPoint(SolverEngine):
 		# TODO: fix model predict, and inliers preidct 0 bug
 		if sample == None:
 			sample = [i for i in range(sample_number)]
-		if weights == None:
-			weights = [1.0 for i in range(np.shape(points)[0])]
+
+		''' 1. 归一化 '''
+		# 最小二乘模型拟合时，对点坐标进行归一化以实现数值稳定性
+		normalized_sample_points, src_transform, dst_transform = self.__normalizeSamplePoints(
+			points, sample)
+
+		''' 2. 求线性解 F' '''
+		# 计算线性方程组参数矩阵 A
 		coefficients = np.zeros([sample_number, 9])
-		
-		# 构成线性系统：a（=a）的第i行表示方程：（m2[i]，1）'*F*（m1[i]，1）=0
-		for i in range(7):
+		for i in range(sample_number):
 			sample_idx = sample[i]
-			weight = weights[sample_idx]
-				
+			weight = 1.0 if weights == None else weights[sample_idx]
+
 			# 取点的坐标
-			point = points[sample_idx]
+			point = normalized_sample_points[i]
 			x0 = point[0]
 			y0 = point[1]
 			x1 = point[2]
 			y1 = point[3]
 
-			# 设置参数矩阵
-			weight_times_x0 = weight * x0
-			weight_times_y0 = weight * y0
-			weight_times_x1 = weight * x1
-			weight_times_y1 = weight * y1
-
-			coefficients[i, 0] = weight_times_x1 * x0
-			coefficients[i, 1] = weight_times_x1 * y0
-			coefficients[i, 2] = weight_times_x1
-			coefficients[i, 3] = weight_times_y1 * x0
-			coefficients[i, 4] = weight_times_y1 * y0
-			coefficients[i, 5] = weight_times_y1
-			coefficients[i, 6] = weight_times_x0
-			coefficients[i, 7] = weight_times_y0
-			coefficients[i, 8] = weight
+			# 设置参数行
+			coefficients[i] = np.array(
+				[x1 * x0, x1 * y0, x1, y1 * x0, y1 * y0, y1, x0, y0, 1]) * weight
 		
 		# A*(f11 f12 ... f33)' = 0 is singular (7 equations for 9 variables), so
 		# the solution is linear subspace of dimensionality 2.
 		# => use the last two singular std::vectors as a basis of the space
-		# (according to SVD properties)
-		U, Sigma, V = np.linalg.svd(np.dot(coefficients.T, coefficients), full_matrices=True)
-
-		f1 = V[:, 6]
-		f2 = V[:, 7]
+		U, Sigma, VT = np.linalg.svd(coefficients)
+		f1 = VT.T[:, 6]
+		f2 = VT.T[:, 7]
 
 		# f1, f2 is a basis => lambda*f1 + mu*f2 is an arbitrary f. matrix.
 		# as it is determined up to a scale, normalize lambda & mu (lambda + mu = 1),
@@ -144,4 +134,61 @@ class SolverFundamentalMatrixSevenPoint(SolverEngine):
 					f[i] = f1[i] * lambda_ + f2[i] * mu
 				models.append(FundamentalMatrix(matrix=np.reshape(f, (3,3))))
 
+		''' 4. 解除归一化 '''
+		for model in models:
+			model.descriptor = np.dot(np.dot(dst_transform.T, model.descriptor), src_transform)
+
 		return models
+
+	def __normalizeSamplePoints(self, data, sample):
+		''' 归一化点集函数 '''
+		sample_number = len(sample)
+
+		# 初始化质点坐标
+		mass_point_src = np.zeros(2)  # 第一张图片质点
+		mass_point_dst = np.zeros(2)  # 第二张图片质点
+
+		# 计算质点坐标 均值
+		for i in range(sample_number):
+			cur_point = data[sample[i], :]
+			# 将坐标添加到质点的坐标上
+			mass_point_src += cur_point[0:2]
+			mass_point_dst += cur_point[2:4]
+		mass_point_src /= sample_number
+		mass_point_dst /= sample_number
+
+		# 求解图像点离质点的平均距离
+		average_distance_src = 0.0
+		average_distance_dst = 0.0
+		for i in range(sample_number):
+			cur_point = data[sample[i], :]
+			# 求解距离
+			d1 = mass_point_src - cur_point[0:2]
+			d2 = mass_point_dst - cur_point[2:4]
+			average_distance_src += m.sqrt(np.sum(d1 ** 2))
+			average_distance_dst += m.sqrt(np.sum(d2 ** 2))
+		average_distance_src /= sample_number
+		average_distance_dst /= sample_number
+
+		# 计算 sqrt（2）/ 平均距离 的比率
+		ratio_src = m.sqrt(2) / average_distance_src
+		ratio_dst = m.sqrt(2) / average_distance_dst
+
+		# 计算归一化的坐标
+		normalized_points = np.zeros([sample_number, 4])
+		for i in range(sample_number):
+			cur_point = data[sample[i], :]
+			np1 = (cur_point[0:2] - mass_point_src) * ratio_src
+			np2 = (cur_point[2:4] - mass_point_dst) * ratio_dst
+			normalized_points[i] = np.r_[np1, np2]
+
+		# 创建归一化转换
+		src_transform = np.array([[ratio_src, 0, -ratio_src * mass_point_src[0]],
+                            [0, ratio_src, -ratio_src * mass_point_src[1]],
+                            [0, 0, 1]])
+
+		dst_transform = np.array([[ratio_dst, 0, -ratio_dst * mass_point_dst[0]],
+                            [0, ratio_dst, -ratio_dst * mass_point_dst[1]],
+                            [0, 0, 1]])
+		# 返回归一化坐标，源图像转换矩阵，目标图像转换矩阵
+		return normalized_points, src_transform, dst_transform

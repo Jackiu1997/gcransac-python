@@ -3,11 +3,14 @@ import math
 import cv2
 import numpy as np
 
-from estimator import EstimatorFundamental, EstimatorHomography
+from estimator import (EstimatorEssential, EstimatorFundamental,
+                       EstimatorHomography)
 from model import *
 from neighbor import GridNeighborhoodGraph
 from sampler import ProgressiveNapsacSampler, UniformSampler
-from solver import (SolverFundamentalMatrixEightPoint,
+from solver import (SolverEssentialMatrixEightPoint,
+                    SolverEssentialMatrixFivePointStewenius,
+                    SolverFundamentalMatrixEightPoint,
                     SolverFundamentalMatrixSevenPoint,
                     SolverHomographyFourPoint)
 
@@ -76,7 +79,7 @@ def __normalizeCorrespondences(points, intrinsics_src, intrinsics_dst):
 
 
 """ 用于特征点匹配，对应矩阵求解的函数 """
-def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold):
+def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf = 0.99, max_iters = 10000):
     """ 单应矩阵求解
     
     参数
@@ -91,17 +94,16 @@ def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold):
         目标图像高度和宽度
     threshold : float
         决定内点和外点的阈值
+    conf : float
+        RANSAC置信参数
+    max_iters : int
+        RANSAC算法最大迭代次数
 
     返回
     --------
     numpy, list
         基础矩阵，标注内点和外点的mask
     """
-    # 初始化默认参数
-    threshold = 1.0
-    conf = 0.99
-    max_iters = 10000
-
     # 合并points到同个矩阵：
     # src在前两列，dst在后两列
     points = np.c_[src_points, dst_points]
@@ -168,7 +170,7 @@ def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold):
     return H, mask
 
 
-def findFundamentalMat(src_points, dst_points, h1, w1, h2, w2, threshold):
+def findFundamentalMat(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf = 0.99, max_iters = 10000):
     """ 基础矩阵求解
 
     参数
@@ -183,17 +185,16 @@ def findFundamentalMat(src_points, dst_points, h1, w1, h2, w2, threshold):
         目标图像高度和宽度
     threshold : float
         决定内点和外点的阈值
+    conf : float
+        RANSAC置信参数
+    max_iters : int
+        RANSAC算法最大迭代次数
 
     返回
     --------
     numpy, list
         基础矩阵，标注内点和外点的mask
     """
-    # 初始化默认参数
-    threshold = 1.0
-    conf = 0.99
-    max_iters = 10000
-
     # 合并points到同个矩阵：
     # src在前两列，dst在后两列
     points = np.c_[src_points, dst_points]
@@ -214,7 +215,7 @@ def findFundamentalMat(src_points, dst_points, h1, w1, h2, w2, threshold):
 
     ''' GC-RANSAC过程 '''
     # 设置模型估计器和模型
-    estimator = EstimatorFundamental(SolverFundamentalMatrixSevenPoint,
+    estimator = EstimatorFundamental(SolverFundamentalMatrixEightPoint,
                                      SolverFundamentalMatrixEightPoint)
     model = FundamentalMatrix()
 
@@ -257,3 +258,103 @@ def findFundamentalMat(src_points, dst_points, h1, w1, h2, w2, threshold):
     F = model.descriptor
     mask = __transformInliersToMask(inliers, gcransac.point_number)
     return F, mask
+
+
+def findEssentialMat(src_points, dst_points, src_K, dst_K, h1, w1, h2, w2, threshold=1.0, conf = 0.99, max_iters = 10000):
+    """ 基础矩阵求解
+
+    参数
+    --------
+    src_points : numpy
+        源图像特征点集合
+    dst_points : numpy
+        目标图像特征点集合
+    src_K : numpy
+        源图像相机内参矩阵
+    dst_K : numpy
+        目标图像相机内参矩阵
+    h1, w1: int, int
+        源图像高度和宽度
+    h2, w2: int, int
+        目标图像高度和宽度
+    threshold : float
+        决定内点和外点的阈值
+    conf : float
+        RANSAC置信参数
+    max_iters : int
+        RANSAC算法最大迭代次数
+
+    返回
+    --------
+    numpy, list
+        基础矩阵，标注内点和外点的mask
+    """
+    # 合并points到同个矩阵：
+    # src在前两列，dst在后两列
+    points = np.c_[src_points, dst_points]
+
+    # A ← Build neighborhood-graph using r.
+    # 初始化 Graph A
+    cell_number_in_neighborhood_graph = 8
+    neighborhood_graph = GridNeighborhoodGraph(points,
+                                          w1 / cell_number_in_neighborhood_graph,
+                                          h1 / cell_number_in_neighborhood_graph,
+                                          w2 / cell_number_in_neighborhood_graph,
+                                          h2 / cell_number_in_neighborhood_graph,
+                                          cell_number_in_neighborhood_graph)
+    # 检查是否初始化成功
+    if not neighborhood_graph.initialized:
+        print("领域图初始化失败\n")
+        return None
+
+    # 求解由内参矩阵转换后的点集
+    normalized_points = __normalizeCorrespondences(points, src_K, dst_K)
+
+    ''' GC-RANSAC过程 '''
+    # 设置模型估计器和模型
+    estimator = EstimatorEssential(SolverEssentialMatrixEightPoint,
+                                   SolverEssentialMatrixEightPoint,
+                                   src_K, dst_K,
+                                   minimum_inlier_ratio_in_validity_check=0.3)
+    model = EssentialMatrix()
+
+    # 设置全局样本和LO局部优化样本
+    main_sampler = ProgressiveNapsacSampler(points,
+                                            [16, 8, 4, 2],          # 网格层, 最细网格的单元是有维度的
+                                            estimator.sampleSize(), # 最小样本数目
+                                            w1, h1, w2, h2)         # 完全混合到全局采样的长度（即 0.5*<point number> 迭代次数）
+    local_optimization_sampler = UniformSampler(points)             # 局部优化采样器用于局部优化
+    # 检查样本是否成功初始化
+    if not main_sampler.initialized or not local_optimization_sampler.initialized:
+        print("采样器初始化失败\n")
+        return None
+
+    # 求解图像最大对角线距离，用于设置图像匹配的阈值
+    max_image_diagonal = math.sqrt(max(w1, w2) ** 2 + max(h1, h2) ** 2)
+    # 设置GC-RANSAC算法参数
+    gcransac = GCRANSAC()
+    gcransac.settings.threshold = threshold * math.sqrt(2) / max_image_diagonal
+    gcransac.settings.spatial_coherence_weight = 0.14
+    gcransac.settings.confidence = conf
+    gcransac.settings.max_local_optimization_number = 50
+    gcransac.settings.max_iteration_number = 5000
+    gcransac.settings.min_iteration_number = 50
+    gcransac.settings.neighborhood_sphere_radius = 8
+    gcransac.settings.min_iteration_number_before_lo = 5
+    gcransac.settings.core_number = 4
+
+    # 运行GC-RANSAC算法
+    model, inliers = gcransac.run(normalized_points,
+                                  estimator,
+                                  main_sampler,
+                                  local_optimization_sampler,
+                                  neighborhood_graph)
+
+    print("iter num\t", gcransac.statistics.iteration_number)
+    print("lo num\t", gcransac.statistics.local_optimization_number)
+    print("gc num\t", gcransac.statistics.graph_cut_number)
+
+    # 获取GC-RANSAC结果（变换矩阵 和 模型对应内点）
+    E = model.descriptor
+    mask = __transformInliersToMask(inliers, gcransac.point_number)
+    return E, mask

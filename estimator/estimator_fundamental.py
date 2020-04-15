@@ -17,6 +17,7 @@ import sys
 
 
 class EstimatorFundamental(Estimator):
+    """ 基础矩阵估计器 """
 
     def __init__(self,
                  minimalSolver,
@@ -62,16 +63,17 @@ class EstimatorFundamental(Estimator):
             通过样本估计的模型列表
         """
         sample_size = self.sampleSize()
-        models = self.minimal_solver.estimateModel(data, sample, sample_size)
+        models = self.minimal_solver.estimateModel(data,
+                                                   sample,
+                                                   sample_size)
 
-        # 朝向约束检验 
+        # 对极约束检验 
         for model in models:
             if not self.__isOrientationValid(model.descriptor,
                                              data,
                                              sample,
                                              sample_size):
                 models.remove(model)
-                
         return models
 
     def estimateModelNonminimal(self, data, sample, sample_number, weights=None):
@@ -95,33 +97,26 @@ class EstimatorFundamental(Estimator):
         """
         if sample_number < self.nonMinimalSampleSize():
             return []
-
-        # 在应用最小二乘模型拟合时，对点坐标进行归一化以实现数值稳定性
-        normalized_points, normalizing_transform_source, normalizing_transform_destination = self.__normalizePoints(
-            data, sample, sample_number)
-        if normalized_points == None:
-            return []
-
-        models = self.non_minimal_solver.estimateModel(normalized_points,
-                                                       None,
+        models = self.non_minimal_solver.estimateModel(data,
+                                                       sample,
                                                        sample_number,
                                                        weights=weights)
-        # 估计基本矩阵的反归一化
+        # 对极约束检验 
         for model in models:
-            model.descriptor = np.dot(np.linalg.inv(normalizing_transform_destination), model.descriptor)
-            model.descriptor = np.dot(model.descriptor, normalizing_transform_source)
-            model.descriptor = model.descriptor.normalize()
-            if model.descriptor[2, 2] < 0:
-                model.descriptor = -model.descriptor
+            if not self.__isOrientationValid(model.descriptor,
+                                             data,
+                                             sample,
+                                             sample_number):
+                models.remove(model)
         return models
     
     def residual(self, point, model):
         ''' 给定模型和数据点，计算误差 '''
-        return m.sqrt(self.__squaredSampsonDistance(point, model.descriptor))
+        return m.sqrt(self.__sampsonDistance(point, model.descriptor))
 
     def squaredResidual(self, point, model):
         """ 给定模型和数据点，计算误差的平方 """
-        return self.__squaredSampsonDistance(point, model.descriptor)
+        return self.__sampsonDistance(point, model.descriptor)
 
     ''' 检查模型是否有效 '''
     # TODO: fix model check all wrong bug
@@ -153,17 +148,17 @@ class EstimatorFundamental(Estimator):
         bool
             模型是否有效
         """
-        passed = False
-        inlier_number = 0
-        descriptor = model.descriptor
         # 当使用对称极距而不是 Sampson 距离时，也应该是内点的最小数
         minimum_inlier_number = max(self.sampleSize(), len(inliers) * self.minimum_inlier_ratio_in_validity_check)
+        inlier_number = 0
+        descriptor = model.descriptor
         squared_threshold = threshold ** 2
+        passed = False
 
         # 遍历由 sampson 距离确定的内点
         for idx in inliers:
             # 计算对称极距，并确定内点数目（如果内点数大于最小内点，则模型通过）
-            if self.__squaredSymmetricEpipolarDistance(data[idx], descriptor) < squared_threshold:
+            if self.__symmetricEpipolarDistance(data[idx], descriptor) < squared_threshold:
                 inlier_number += 1
                 if inlier_number >= minimum_inlier_number:
                     passed = True
@@ -352,113 +347,29 @@ class EstimatorFundamental(Estimator):
         model.descriptor = U * diagonal * V.T
         
     ''' 距离计算工具函数 '''
-    def __squaredSampsonDistance(self, point, descriptor):
-        """ 点对应与本质矩阵的 sampson 距离平方 """
-        x1 = point[0]
-        y1 = point[1]
-        x2 = point[2]
-        y2 = point[3]
+    def __sampsonDistance(self, point, descriptor):
+        """ 点对应与本质矩阵的 sampson 距离 """
+        x1 = np.hstack((point[0:2], [1]))
+        x2 = np.hstack((point[2:4], [1]))
+        
+        f_x1 = np.dot(descriptor, x1)
+        x2_f = np.dot(x2.T, descriptor)
+        x2_f_x1 = np.dot(x2_f, x1)
 
-        e11 = descriptor[0, 0]
-        e12 = descriptor[0, 1]
-        e13 = descriptor[0, 2]
-        e21 = descriptor[1, 0]
-        e22 = descriptor[1, 1]
-        e23 = descriptor[1, 2]
-        e31 = descriptor[2, 0]
-        e32 = descriptor[2, 1]
-        e33 = descriptor[2, 2]
+        return x2_f_x1 ** 2 / (f_x1[0] ** 2 + f_x1[1] ** 2 + x2_f[0] ** 2 + x2_f[1] ** 2)
 
-        rxc = e11 * x2 + e21 * y2 + e31
-        ryc = e12 * x2 + e22 * y2 + e32
-        rwc = e13 * x2 + e23 * y2 + e33
-        r = (x1 * rxc + y1 * ryc + rwc)
-        rx = e11 * x1 + e12 * y1 + e13
-        ry = e21 * x1 + e22 * y1 + e23
+    def __symmetricEpipolarDistance(self, point, descriptor):
+        """ 点对应与本质矩阵的 对称极线距离 """
+        x1 = np.hstack((point[0:2], [1]))
+        x2 = np.hstack((point[2:4], [1]))
+        
+        f_x1 = np.dot(descriptor, x1)
+        x2_f = np.dot(x2.T, descriptor)
+        x2_f_x1 = np.dot(x2_f, x1)
 
-        return r * r / (rxc * rxc + ryc * ryc + rx * rx + ry * ry)
-
-    def __squaredSymmetricEpipolarDistance(self, point, descriptor):
-        """ 点对应与本质矩阵的对称极距平方 """
-        x1 = point[0]
-        y1 = point[1]
-        x2 = point[2]
-        y2 = point[3]
-
-        e11 = descriptor[0, 0]
-        e12 = descriptor[0, 1]
-        e13 = descriptor[0, 2]
-        e21 = descriptor[1, 0]
-        e22 = descriptor[1, 1]
-        e23 = descriptor[1, 2]
-        e31 = descriptor[2, 0]
-        e32 = descriptor[2, 1]
-        e33 = descriptor[2, 2]
-
-        rxc = e11 * x2 + e21 * y2 + e31
-        ryc = e12 * x2 + e22 * y2 + e32
-        rwc = e13 * x2 + e23 * y2 + e33
-        r = (x1 * rxc + y1 * ryc + rwc)
-        rx = e11 * x1 + e12 * y1 + e13
-        ry = e21 * x1 + e22 * y1 + e23
-        a = rxc * rxc + ryc * ryc
-        b = rx * rx + ry * ry
-
-        return r * r * (a + b) / (a * b)
+        return x2_f_x1 ** 2 * (1 / (f_x1[0] ** 2 + f_x1[1] ** 2) + 1 / (x2_f[0] ** 2 + x2_f[1] ** 2))
     
-    ''' 规范化点集函数 '''
-    def __normalizePoints(self, data, sample, sample_number):
-        ''' 规范化点集函数 '''
-        # 初始化质点坐标
-        mass_point_src = np.zeros(2)  # 第一张图片质点
-        mass_point_dst = np.zeros(2)  # 第二张图片质点
-
-        # 计算质点坐标 均值
-        for i in range(sample_number):
-            cur_point = data[sample[i], :]
-            # 将坐标添加到质点的坐标上
-            mass_point_src += cur_point[0:2]
-            mass_point_dst += cur_point[2:4]
-        mass_point_src /= sample_number
-        mass_point_dst /= sample_number
-
-        # 求解图像点离质点的平均距离
-        average_distance_src = 0.0
-        average_distance_dst = 0.0
-        for i in range(sample_number):
-            cur_point = data[sample[i], :]
-            # 求解距离
-            d1 = mass_point_src - cur_point[0:2]
-            d2 = mass_point_dst - cur_point[2:4]
-            average_distance_src += m.sqrt(np.sum(d1 ** 2))
-            average_distance_dst += m.sqrt(np.sum(d2 ** 2))
-        average_distance_src /= sample_number
-        average_distance_dst /= sample_number
-
-        # 计算 sqrt（2）/ 平均距离 的比率
-        ratio_src = m.sqrt(2) / average_distance_src
-        ratio_dst = m.sqrt(2) / average_distance_dst
-
-        # 计算归一化的坐标
-        normalized_points_ = np.zeros([sample_number, 4])
-        for i in range(sample_number):
-            cur_point = data[sample[i], :]
-            np1 = (cur_point[0:2] - mass_point_src) * ratio_src
-            np2 = (cur_point[2:4] - mass_point_dst) * ratio_dst
-            normalized_points_[i] = np.r_[np1, np2]
-
-        # 创建归一化转换
-        normalizing_transform_source_ = np.array([[ratio_src, 0, -ratio_src * mass_point_src[0]],
-                                                  [0, ratio_src, -ratio_src * mass_point_src[1]],
-                                                  [0, 0, 1]])
-
-        normalizing_transform_destination_ = np.array([[ratio_dst, 0, -ratio_dst * mass_point_dst[0]],
-                                                       [0, ratio_dst, -ratio_dst * mass_point_dst[1]],
-                                                       [0, 0, 1]])
-        # 返回归一化坐标，源图像转换矩阵，目标图像转换矩阵
-        return normalized_points_, normalizing_transform_source_, normalizing_transform_destination_
-
-    ''' 定向极线约束函数 Oriented epipolar constraints '''
+    ''' 对极约束函数 Oriented epipolar constraints '''
     def __getEpipole(self, fundamental_matrix):
         epsilon = sys.float_info.epsilon
         epipole =  np.cross(fundamental_matrix[0], fundamental_matrix[2])

@@ -9,6 +9,7 @@ from solver.solver_homography_four_point import SolverHomographyFourPoint
 
 
 class EstimatorHomography(Estimator):
+    """ 单应矩阵估计器 """
 
     def __init__(self, minimalSolver, nonMinimalSolver):
         super().__init__()

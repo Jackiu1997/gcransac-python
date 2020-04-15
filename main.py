@@ -8,31 +8,20 @@ import numpy as np
 import gcransac as gc
 
 
-def decolorize(img):
-    return cv2.cvtColor(cv2.cvtColor(img, cv2.COLOR_RGB2GRAY), cv2.COLOR_GRAY2RGB)
-
 def draw_matches(kps1, kps2, tentatives, img1, img2, H, mask, title):
     if H is None:
         print("No homography found")
         return
     matchesMask = mask.ravel().tolist()
     h, w, ch = img1.shape
-    pts = np.float32([[0, 0], [0, h-1], [w-1, h-1], [w-1, 0]]
-                     ).reshape(-1, 1, 2)
-    dst = cv2.perspectiveTransform(pts, H)
-
-    # Ground truth transformation
-    dst_GT = cv2.perspectiveTransform(pts, H_gt)
-    img2_tr = cv2.polylines(decolorize(img2), [np.int32(dst)], True, (0, 0, 255), 3, cv2.LINE_AA)
-    img2_tr = cv2.polylines(deepcopy(img2_tr), [np.int32(dst_GT)], True, (0, 255, 0), 3, cv2.LINE_AA)
+    pts = np.float32([[0, 0], [0, h-1], [w-1, h-1], [w-1, 0]]).reshape(-1, 1, 2)
 
     # Blue is estimated, green is ground truth homography
-    draw_params = dict(matchColor=(255, 255, 0),  # draw matches in yellow color
+    draw_params = dict(matchColor=(255, 255, 0),
                        singlePointColor=None,
-                       matchesMask=matchesMask,  # draw only inliers
+                       matchesMask=matchesMask,
                        flags=2)
-    img_out = cv2.drawMatches(decolorize(img1), kps1,
-                              img2_tr, kps2, tentatives, None, **draw_params)
+    img_out = cv2.drawMatches(img1, kps1, img2, kps2, tentatives, None, **draw_params)
     plt.figure(figsize=(12, 8))
     plt.title(title)
     plt.imshow(img_out)
@@ -43,7 +32,7 @@ def homography_cv2(kps1, kps2, tentatives):
         [kps1[m.queryIdx].pt for m in tentatives]).reshape(-1, 1, 2)
     dst_pts = np.float32(
         [kps2[m.trainIdx].pt for m in tentatives]).reshape(-1, 1, 2)
-    H, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 1.0)
+    H, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 2.0)
     print(deepcopy(mask).astype(np.float32).sum(), 'inliers found')
     return H, mask
 
@@ -52,7 +41,7 @@ def homography_gcransac(kps1, kps2, tentatives, h1, w1, h2, w2):
         [kps1[m.queryIdx].pt for m in tentatives]).reshape(-1, 2)
     dst_pts = np.float32(
         [kps2[m.trainIdx].pt for m in tentatives]).reshape(-1, 2)
-    H, mask = gc.findHomography(src_pts, dst_pts, h1, w1, h2, w2, 1.0)
+    H, mask = gc.findHomography(src_pts, dst_pts, h1, w1, h2, w2, 2.0)
     print(deepcopy(mask).astype(np.float32).sum(), 'inliers found')
     return H, mask
 
@@ -61,7 +50,7 @@ def fundamental_cv2(kps1, kps2, tentatives):
         [kps1[m.queryIdx].pt for m in tentatives]).reshape(-1, 1, 2)
     dst_pts = np.float32(
         [kps2[m.trainIdx].pt for m in tentatives]).reshape(-1, 1, 2)
-    H, mask = cv2.findFundamentalMat(src_pts, dst_pts, cv2.RANSAC, 1.0)
+    H, mask = cv2.findFundamentalMat(src_pts, dst_pts, cv2.RANSAC, 3.0)
     print(deepcopy(mask).astype(np.float32).sum(), 'inliers found')
     return H, mask
 
@@ -70,17 +59,27 @@ def fundamental_gcransac(kps1, kps2, tentatives, h1, w1, h2, w2):
         [kps1[m.queryIdx].pt for m in tentatives]).reshape(-1, 2)
     dst_pts = np.float32(
         [kps2[m.trainIdx].pt for m in tentatives]).reshape(-1, 2)
-    H, mask = gc.findFundamentalMat(src_pts, dst_pts, h1, w1, h2, w2, 1.0)
+    H, mask = gc.findFundamentalMat(src_pts, dst_pts, h1, w1, h2, w2, 3.0)
+    print(deepcopy(mask).astype(np.float32).sum(), 'inliers found')
+    return H, mask
+
+def essential_gcransac(kps1, kps2, tentatives, src_K, dst_K, h1, w1, h2, w2):
+    src_pts = np.float32(
+        [kps1[m.queryIdx].pt for m in tentatives]).reshape(-1, 2)
+    dst_pts = np.float32(
+        [kps2[m.trainIdx].pt for m in tentatives]).reshape(-1, 2)
+    H, mask = gc.findEssentialMat(src_pts, dst_pts, src_K, dst_K, h1, w1, h2, w2, 3.0)
     print(deepcopy(mask).astype(np.float32).sum(), 'inliers found')
     return H, mask
 
 
 if __name__ == "__main__":
     # 加载 src_img dst_img
-    src_img = cv2.cvtColor(cv2.imread('img/grafA.png'), cv2.COLOR_BGR2RGB)
-    dst_img = cv2.cvtColor(cv2.imread('img/grafB.png'), cv2.COLOR_BGR2RGB)
-    # 加载相机位移参数
-    H_gt = np.linalg.inv(np.loadtxt('img/graf_model.txt'))
+    src_img = cv2.cvtColor(cv2.imread('img/fountain/fountain1.jpg'), cv2.COLOR_BGR2RGB)
+    dst_img = cv2.cvtColor(cv2.imread('img/fountain/fountain2.jpg'), cv2.COLOR_BGR2RGB)
+    # 加载相机内参
+    src_K = np.loadtxt('img/fountain/fountain1.K')
+    dst_K = np.loadtxt('img/fountain/fountain2.K')
 
     # 创建 ORB 特征提取器
     detetor = cv2.ORB_create(1000)
@@ -140,6 +139,24 @@ if __name__ == "__main__":
         draw_matches(keypoints1, keypoints2, tentatives, src_img, dst_img, mag_H, mag_mask, "GC-RANSAC")
         plt.show()
     
+    def testEssentialMat():
+        # 测试 gc-ransac
+        t = time()
+        mag_H, mag_mask = essential_gcransac(keypoints1,
+                                             keypoints2,
+                                             tentatives,
+                                             src_K, 
+                                             dst_K,
+                                             src_img.shape[0],
+                                             src_img.shape[1],
+                                             dst_img.shape[0],
+                                             dst_img.shape[1])
+        print(time()-t, ' sec gc-ransac')
+
+        # 绘制匹配结果图像
+        draw_matches(keypoints1, keypoints2, tentatives, src_img, dst_img, mag_H, mag_mask, "GC-RANSAC")
+        plt.show()
+    
     while True:
         print("1.Homography\n2.FundamentalMatrix\n3.EssentialMatrix\n0:exit\nPlease input try to solve:")
         option = int(input())
@@ -148,6 +165,8 @@ if __name__ == "__main__":
             testHomography()
         elif option == 2:
             testFundamentalMat()
+        elif option == 3:
+            testEssentialMat()
         elif option == 0:
             break
         else:

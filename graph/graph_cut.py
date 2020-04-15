@@ -76,8 +76,8 @@ class GraphCut:
         # 记录内点的序号
         inliers = []
         for point_idx in range(point_number):
-            # 1 表示给定点接近 SOURCE
-            if self.graph.get_segment(point_idx) == 1:
+            # 1 表示给定点接近 SINK
+            if self.graph.get_segment(point_idx) == 0:
                 inliers.append(point_idx)
 
         return inliers
