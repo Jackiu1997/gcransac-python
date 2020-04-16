@@ -173,13 +173,13 @@ class GCRANSAC:
                     # 更新最大迭代数
                     self.max_iteration = self.__getIterationNumber(so_far_the_best_score.inlier_number)
 
-            # µ21 = µ2/µ1 < lo_conf
-            # 决定是否需要局部优化
-            if last_the_best_score.inlier_number != 0:
-                u2 = self.__getConfidenceNumber(so_far_the_best_score.inlier_number)
-                u1 = self.__getConfidenceNumber(last_the_best_score.inlier_number)
-                u21 = u2 / u1
-                do_local_optimization = u21 > 1.3
+                    # µ21 = µ2/µ1 < lo_conf
+                    # 决定是否需要局部优化
+                    if last_the_best_score.inlier_number != 0:
+                        u2 = self.__getConfidenceNumber(so_far_the_best_score.inlier_number)
+                        u1 = self.__getConfidenceNumber(last_the_best_score.inlier_number)
+                        u21 = u2 / u1
+                        do_local_optimization = True if u21 > 1.3 else do_local_optimization
             
             # if do_local_optimization then
             if do_local_optimization and self.settings.do_local_optimization:

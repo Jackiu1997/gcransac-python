@@ -148,7 +148,7 @@ def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf =
     gcransac.settings.spatial_coherence_weight = 0.14
     gcransac.settings.confidence = conf
     gcransac.settings.max_local_optimization_number = 50
-    gcransac.settings.max_iteration_number = 5000
+    gcransac.settings.max_iteration_number = max_iters
     gcransac.settings.min_iteration_number = 50
     gcransac.settings.neighborhood_sphere_radius = 8
     gcransac.settings.core_number = 4
@@ -160,9 +160,9 @@ def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf =
                                   local_optimization_sampler,
                                   neighborhood_graph)
 
-    print("iter num\t", gcransac.statistics.iteration_number)
-    print("lo num\t", gcransac.statistics.local_optimization_number)
-    print("gc num\t", gcransac.statistics.graph_cut_number)
+    print(f'Applied number of local optimizations = {gcransac.statistics.local_optimization_number}')
+    print(f'Applied number of graph-cuts = {gcransac.statistics.graph_cut_number}')
+    print(f'Number of iterations = {gcransac.statistics.iteration_number}')
 
     # 获取特征点匹配结果（变换矩阵 和 模型对应内点）
     H = model.descriptor
@@ -238,7 +238,7 @@ def findFundamentalMat(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, co
     gcransac.settings.spatial_coherence_weight = 0.14
     gcransac.settings.confidence = conf
     gcransac.settings.max_local_optimization_number = 50
-    gcransac.settings.max_iteration_number = 5000
+    gcransac.settings.max_iteration_number = max_iters
     gcransac.settings.min_iteration_number = 50
     gcransac.settings.neighborhood_sphere_radius = 8
     gcransac.settings.core_number = 4
@@ -250,9 +250,9 @@ def findFundamentalMat(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, co
                                   local_optimization_sampler,
                                   neighborhood_graph)
 
-    print("iter num\t", gcransac.statistics.iteration_number)
-    print("lo num\t", gcransac.statistics.local_optimization_number)
-    print("gc num\t", gcransac.statistics.graph_cut_number)
+    print(f'Applied number of local optimizations = {gcransac.statistics.local_optimization_number}')
+    print(f'Applied number of graph-cuts = {gcransac.statistics.graph_cut_number}')
+    print(f'Number of iterations = {gcransac.statistics.iteration_number}')
 
     # 获取GC-RANSAC结果（变换矩阵 和 模型对应内点）
     F = model.descriptor
@@ -337,7 +337,7 @@ def findEssentialMat(src_points, dst_points, src_K, dst_K, h1, w1, h2, w2, thres
     gcransac.settings.spatial_coherence_weight = 0.14
     gcransac.settings.confidence = conf
     gcransac.settings.max_local_optimization_number = 50
-    gcransac.settings.max_iteration_number = 5000
+    gcransac.settings.max_iteration_number = max_iters
     gcransac.settings.min_iteration_number = 50
     gcransac.settings.neighborhood_sphere_radius = 8
     gcransac.settings.min_iteration_number_before_lo = 5
@@ -350,9 +350,9 @@ def findEssentialMat(src_points, dst_points, src_K, dst_K, h1, w1, h2, w2, thres
                                   local_optimization_sampler,
                                   neighborhood_graph)
 
-    print("iter num\t", gcransac.statistics.iteration_number)
-    print("lo num\t", gcransac.statistics.local_optimization_number)
-    print("gc num\t", gcransac.statistics.graph_cut_number)
+    print(f'Applied number of local optimizations = {gcransac.statistics.local_optimization_number}')
+    print(f'Applied number of graph-cuts = {gcransac.statistics.graph_cut_number}')
+    print(f'Number of iterations = {gcransac.statistics.iteration_number}')
 
     # 获取GC-RANSAC结果（变换矩阵 和 模型对应内点）
     E = model.descriptor
