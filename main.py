@@ -7,18 +7,30 @@ import numpy as np
 
 import gcransac as gc
 
+def draw_detected_feature(kps1, kps2, img1, img2, matches):
+    plt.figure(figsize=(12, 8))
 
-def draw_compare_matches(kps1, kps2, tentatives, img1, img2, cv_H, cv_mask, gc_H, gc_mask):
+    img1 = cv2.drawKeypoints(img1, kps1, None, (0, 255, 0), 2)
+    img2 = cv2.drawKeypoints(img2, kps2, None, (0, 255, 0), 2)
+    img_out = cv2.drawMatches(img1, kps1, img2, kps2, matches, None, flags=2)
+    plt.imshow(img_out)
+
+    plt.show()
+    return
+
+
+def draw_compare_matches(kps1, kps2, matches, img1, img2, cv_H, cv_mask, gc_H, gc_mask, show_trans=False):
     h, w, ch = img1.shape
     pts = np.float32([[0, 0], [0, h-1], [w-1, h-1], [w-1, 0]]).reshape(-1, 1, 2)
     
-    # points transformation
-    dst_gc = cv2.perspectiveTransform(pts, gc_H)
-    dst_cv2 = cv2.perspectiveTransform(pts, cv_H)
+    if show_trans:
+        # points transformation
+        dst_gc = cv2.perspectiveTransform(pts, gc_H)
+        dst_cv = cv2.perspectiveTransform(pts, cv_H)
 
-    # blue is gc-ransac estimated, green is cv2-ransac estimated
-    img2_tr = cv2.polylines(img2, [np.int32(dst_gc)], True, (0, 0, 255), 3, cv2.LINE_AA)
-    img2_tr = cv2.polylines(deepcopy(img2_tr), [np.int32(dst_cv2)], True, (0, 255, 0), 3, cv2.LINE_AA)
+        # blue is gc-ransac estimated, green is cv2-ransac estimated
+        img2 = cv2.polylines(img2, [np.int32(dst_gc)], True, (0, 0, 255), 3, cv2.LINE_AA)
+        img2 = cv2.polylines(img2, [np.int32(dst_cv)], True, (0, 255, 0), 3, cv2.LINE_AA)
 
     plt.figure(figsize=(12, 8))
     # draw match lines for cv2-ransac
@@ -26,7 +38,7 @@ def draw_compare_matches(kps1, kps2, tentatives, img1, img2, cv_H, cv_mask, gc_H
                        singlePointColor=None,
                        matchesMask=cv_mask.ravel().tolist(),
                        flags=2)
-    img_out = cv2.drawMatches(img1, kps1, img2_tr, kps2, tentatives, None, **draw_params)
+    img_out = cv2.drawMatches(img1, kps1, img2, kps2, matches, None, **draw_params)
     ax1 = plt.subplot(2, 1, 1)
     plt.title("CV2-RANSAC")
     plt.imshow(img_out)
@@ -36,7 +48,7 @@ def draw_compare_matches(kps1, kps2, tentatives, img1, img2, cv_H, cv_mask, gc_H
                        singlePointColor=None,
                        matchesMask=gc_mask.ravel().tolist(),
                        flags=2)
-    img_out = cv2.drawMatches(img1, kps1, img2_tr, kps2, tentatives, None, **draw_params)
+    img_out = cv2.drawMatches(img1, kps1, img2, kps2, matches, None, **draw_params)
     ax2 = plt.subplot(2, 1, 2)
     plt.title("GC-RANSAC")
     plt.imshow(img_out)
@@ -132,28 +144,37 @@ def testEssentialMat(src_pts, dst_pts, src_K, dst_K, h1, w1, h2, w2, threshold=1
 
 
 if __name__ == "__main__":
-    src_img, dst_img = load_test_datasets('graf')
+    dataset = "head"
+    src_img, dst_img = load_test_datasets(dataset)
 
     # 创建 ORB 特征提取器
-    detetor = cv2.ORB_create(1000)
+    detetor = cv2.ORB_create(2000)
     # 提取 ORB 角点特征点 keypoints，特征点提取区域局部图像 descriptions
     keypoints1, descriptions1 = detetor.detectAndCompute(src_img, None)
     keypoints2, descriptions2 = detetor.detectAndCompute(dst_img, None)
-    # BF 暴力匹配结果
+    # BF 暴力匹配器
     bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-    # BF 匹配结果筛选结果
-    tentatives = bf.match(descriptions1, descriptions2)
+    # 特征描述子匹配
+    matches = bf.match(descriptions1, descriptions2)
+    # 特征描述子排序筛选 一半匹配
+    matches = sorted(matches, key=lambda x: x.distance)[:len(matches) // 2]
+
+    # 绘制初始获取的暴力匹配结果
+    draw_detected_feature(keypoints1, keypoints2, src_img, dst_img, matches)
+
+    print(f"Detect {dataset} features")
+    print(f"Features found in src image = {len(keypoints1)}")
+    print(f"Features found in dst image = {len(keypoints2)}")
+    print(f"Matches number = {len(matches)}\n")
 
     # 根据匹配结果构建点对
-    src_pts = np.float32(
-        [keypoints1[m.queryIdx].pt for m in tentatives]).reshape(-1, 2)
-    dst_pts = np.float32(
-        [keypoints2[m.trainIdx].pt for m in tentatives]).reshape(-1, 2)
+    src_pts = np.float32([keypoints1[m.queryIdx].pt for m in matches]).reshape(-1, 2)
+    dst_pts = np.float32([keypoints2[m.trainIdx].pt for m in matches]).reshape(-1, 2)
     # 获取图像长宽信息
     h1, w1, _ = np.shape(src_img)
     h2, w2, _ = np.shape(dst_img)
     
-    cv_H, cv_mask, gc_H, gc_mask = testHomography(src_pts, dst_pts, h1, w1, h2, w2, 1.0)
-    #cv_H, cv_mask, gc_H, gc_mask = testFundamentalMat(src_pts, dst_pts, h1, w1, h2, w2, 3.0)
+    #cv_H, cv_mask, gc_H, gc_mask = testHomography(src_pts, dst_pts, h1, w1, h2, w2, 2.0)
+    cv_H, cv_mask, gc_H, gc_mask = testFundamentalMat(src_pts, dst_pts, h1, w1, h2, w2, 3.0)
     #cv_H, cv_mask, gc_H, gc_mask = testEssentialMat(src_pts, dst_pts, h1, w1, h2, w2, 3.0)
-    draw_compare_matches(keypoints1, keypoints2, tentatives, src_img, dst_img, cv_H, cv_mask, gc_H, gc_mask)
+    draw_compare_matches(keypoints1, keypoints2, matches, src_img, dst_img, cv_H, cv_mask, gc_H, gc_mask, True)
