@@ -50,9 +50,10 @@ class GraphCut:
         squared_residuals = []
         for point_idx in range(point_number):
             squared_distance = estimator.squaredResidual(points[point_idx], model)
-            energy = 1.0 - squared_distance / squared_truncated_threshold
+            c0 = squared_distance / squared_truncated_threshold
+            c1 = 1.0 - c0
             squared_residuals.append(squared_distance)
-            self.__addTerm1(point_idx, energy, 0)
+            self.__addTerm1(point_idx, c1, 0)
         # 空间相干性项权重须为正数，才能有效惩罚
         if lambda_ > 0:
             e00, e01, e10, e11 = 0.0, 1.0, 1.0, 0.0

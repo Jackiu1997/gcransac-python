@@ -35,10 +35,12 @@ class _Settings:
 class _Statistics:
 
     def __init__(self):
-        self.graph_cut_number = 0
-        self.local_optimization_number = 0
         self.iteration_number = 0
+        self.graph_cut_number = 0
+        self.graph_cut_better_number = 0
+        self.local_optimization_number = 0
         self.neighbor_number = 0
+        
 
 class GCRANSAC:
 
@@ -173,13 +175,17 @@ class GCRANSAC:
                     # 更新最大迭代数
                     self.max_iteration = self.__getIterationNumber(so_far_the_best_score.inlier_number)
 
+                    do_local_optimization = self.statistics.iteration_number > self.settings.min_iteration_number_before_lo and\
+						so_far_the_best_score.inlier_number > self.sample_number
+
+                    '''
                     # µ21 = µ2/µ1 < lo_conf
                     # 决定是否需要局部优化
                     if last_the_best_score.inlier_number != 0:
                         u2 = self.__getConfidenceNumber(so_far_the_best_score.inlier_number)
                         u1 = self.__getConfidenceNumber(last_the_best_score.inlier_number)
                         u21 = u2 / u1
-                        do_local_optimization = True if u21 > 1.3 else do_local_optimization
+                        do_local_optimization = True if u21 > 1.1 else do_local_optimization'''
             
             # if do_local_optimization then
             if do_local_optimization and self.settings.do_local_optimization:
@@ -258,28 +264,36 @@ class GCRANSAC:
                                           self.settings.threshold)
 
         # θ ← Fit a model using labeling I7m
-        sample_size = min(self.estimator.inlierLimit(), len(gc_inliers))
-        changed = False
-        unsuccess_iteration = 0
-        while not changed and unsuccess_iteration < 10:
-            unsuccess_iteration += 1
+        min_sample_size = self.estimator.sampleSize()
+        inlier_limit = self.estimator.inlierLimit()
+        gc_inlier_number = len(gc_inliers)
+        sample_size = min(inlier_limit, gc_inlier_number)
+        trival_number = 0
 
-            # 采样数小于内点数，则均匀随机采样，用 I7m 样本估计模型
-            if sample_size < len(gc_inliers):
-                current_sample = self.local_optimization_sampler.sample(gc_inliers, sample_size)
-            # 模型估计器所需采样数小于内点数，则用内点之间估计模型
-            elif self.estimator.sampleSize() < len(gc_inliers):
-                current_sample = gc_inliers
-            # 否则，内点数目不能估计模型
+        # 采样数小于内点数，则均匀随机采样，用 I7m 样本估计模型
+        if gc_inlier_number >= inlier_limit:
+            trival_number = 10
+        # 模型估计器所需采样数小于内点数，则用全部 GC 内点估计模型
+        elif gc_inlier_number >= min_sample_size:
+            trival_number = 1
+        # 否则，GC 内点数不能估计有效模型
+        else:
+            trival_number = 0
+
+        # 尝试多次采样 GC 内点估计更好模型
+        for iteration in range(trival_number):
+            # 从 gc 内点集进行采样
+            if gc_inlier_number >= inlier_limit:
+                current_sample = self.local_optimization_sampler.sample(gc_inliers, inlier_limit)
             else:
-                break
+                current_sample = gc_inliers
 
             models = self.estimator.estimateModelNonminimal(self.points,
                                                             current_sample,
                                                             sample_size)
             if len(models) == 0:
                 continue
-            
+            changed = False
             for model in models:
                 # w ← Compute the support of θ
                 score, inliers = self.scoring_function.getScore(self.points,
@@ -294,6 +308,10 @@ class GCRANSAC:
                     so_far_the_best_model = model
                     so_far_the_best_inliers = inliers
                     changed = True
+
+            if changed:
+                self.statistics.graph_cut_better_number += 1
+                break
 
         # Output: L∗LO – labeling, w∗LO – support, θ∗LO – model
         return so_far_the_best_model, so_far_the_best_inliers, so_far_the_best_score

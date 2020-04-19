@@ -7,7 +7,8 @@ class Score:
         self.value = 0.0         # 得分
 
     def __lt__(self, v):
-        return self.value < v.value
+        return self.value < v.value and\
+            self.inlier_number < v.inlier_number
 
     def __gt__(self, v):
         return self.value > v.value

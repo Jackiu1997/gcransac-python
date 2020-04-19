@@ -79,7 +79,7 @@ def __normalizeCorrespondences(points, intrinsics_src, intrinsics_dst):
 
 
 """ 用于特征点匹配，对应矩阵求解的函数 """
-def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf = 0.99, max_iters = 10000):
+def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf=0.99, max_iters=10000):
     """ 单应矩阵求解
     
     参数
@@ -162,6 +162,7 @@ def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf =
 
     print(f'Applied number of local optimizations = {gcransac.statistics.local_optimization_number}')
     print(f'Applied number of graph-cuts = {gcransac.statistics.graph_cut_number}')
+    print(f'Applied number of graph-cuts-better = {gcransac.statistics.graph_cut_better_number}')
     print(f'Number of iterations = {gcransac.statistics.iteration_number}')
 
     # 获取特征点匹配结果（变换矩阵 和 模型对应内点）
@@ -170,7 +171,7 @@ def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf =
     return H, mask
 
 
-def findFundamentalMat(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf = 0.99, max_iters = 10000):
+def findFundamentalMat(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf=0.99, max_iters=10000):
     """ 基础矩阵求解
 
     参数
@@ -234,7 +235,7 @@ def findFundamentalMat(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, co
     max_image_diagonal = math.sqrt(max(w1, w2) ** 2 + max(h1, h2) ** 2)
     # 设置GC-RANSAC算法参数
     gcransac = GCRANSAC()
-    gcransac.settings.threshold = 0.0005 * threshold * max_image_diagonal
+    gcransac.settings.threshold = 0.0003 * threshold * max_image_diagonal
     gcransac.settings.spatial_coherence_weight = 0.14
     gcransac.settings.confidence = conf
     gcransac.settings.max_local_optimization_number = 50
@@ -252,6 +253,7 @@ def findFundamentalMat(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, co
 
     print(f'Applied number of local optimizations = {gcransac.statistics.local_optimization_number}')
     print(f'Applied number of graph-cuts = {gcransac.statistics.graph_cut_number}')
+    print(f'Applied number of graph-cuts-better = {gcransac.statistics.graph_cut_better_number}')
     print(f'Number of iterations = {gcransac.statistics.iteration_number}')
 
     # 获取GC-RANSAC结果（变换矩阵 和 模型对应内点）
@@ -333,7 +335,7 @@ def findEssentialMat(src_points, dst_points, src_K, dst_K, h1, w1, h2, w2, thres
     max_image_diagonal = math.sqrt(max(w1, w2) ** 2 + max(h1, h2) ** 2)
     # 设置GC-RANSAC算法参数
     gcransac = GCRANSAC()
-    gcransac.settings.threshold = threshold * math.sqrt(2) / max_image_diagonal
+    gcransac.settings.threshold = 0.0003 * threshold
     gcransac.settings.spatial_coherence_weight = 0.14
     gcransac.settings.confidence = conf
     gcransac.settings.max_local_optimization_number = 50
@@ -352,6 +354,7 @@ def findEssentialMat(src_points, dst_points, src_K, dst_K, h1, w1, h2, w2, thres
 
     print(f'Applied number of local optimizations = {gcransac.statistics.local_optimization_number}')
     print(f'Applied number of graph-cuts = {gcransac.statistics.graph_cut_number}')
+    print(f'Applied number of graph-cuts-better = {gcransac.statistics.graph_cut_better_number}')
     print(f'Number of iterations = {gcransac.statistics.iteration_number}')
 
     # 获取GC-RANSAC结果（变换矩阵 和 模型对应内点）

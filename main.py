@@ -7,6 +7,7 @@ import numpy as np
 
 import gcransac as gc
 
+
 def draw_detected_feature(kps1, kps2, img1, img2, matches):
     plt.figure(figsize=(12, 8))
 
@@ -77,10 +78,8 @@ def load_test_datasets(data_name):
         src_path = 'img/Kyoto/Kyoto1.jpg'
         dst_path = 'img/Kyoto/Kyoto2.jpg'
     elif data_name == "fountain":
-        src_path = 'img/fountain/fountain1.png'
-        dst_path = 'img/fountain/fountain2.png'
-        src_K = np.loadtxt('img/fountain/fountain1.K')
-        src_K = np.loadtxt('img/fountain/fountain2.K')
+        src_path = 'img/fountain/fountain1.jpg'
+        dst_path = 'img/fountain/fountain2.jpg'
     
     # 加载 src_img dst_img
     src_img = cv2.cvtColor(cv2.imread(src_path), cv2.COLOR_BGR2RGB)
@@ -100,7 +99,7 @@ def testHomography(src_pts, dst_pts, h1, w1, h2, w2, threshold=1.0):
     # 测试 gc-ransac
     print('GC-RANSAC')
     t = time()
-    gc_H, gc_mask = gc.findHomography(src_pts, dst_pts, h1, w1, h2, w2, threshold)
+    gc_H, gc_mask = gc.findHomography(src_pts, dst_pts, h1, w1, h2, w2, threshold=threshold, max_iters=5000)
     print('Inlier number = ', deepcopy(gc_mask).astype(np.float32).sum())
     print('Elapsed time = ', time()-t, '\n')
 
@@ -118,8 +117,8 @@ def testFundamentalMat(src_pts, dst_pts, h1, w1, h2, w2, threshold=1.0):
     # 测试 gc-ransac
     print('GC-RANSAC')
     t = time()
-    gc_H, gc_mask = gc.findFundamentalMat(src_pts, dst_pts, h1, w1, h2, w2, threshold)
-    print('Inlier number = ', deepcopy(cv_mask).astype(np.float32).sum())
+    gc_H, gc_mask = gc.findFundamentalMat(src_pts, dst_pts, h1, w1, h2, w2, threshold=threshold, max_iters=5000)
+    print('Inlier number = ', deepcopy(gc_mask).astype(np.float32).sum())
     print('Elapsed time = ', time()-t, '\n')
 
     return cv_H, cv_mask, gc_H, gc_mask
@@ -129,14 +128,14 @@ def testEssentialMat(src_pts, dst_pts, src_K, dst_K, h1, w1, h2, w2, threshold=1
     # 测试 cv-ransac
     print('CV2-RANSAC')
     t = time()
-    cv_H, cv_mask = cv2.findEssentialMat(src_pts, dst_pts, src_K, cv2.RANSAC, threshold)
+    cv_H, cv_mask = cv2.findEssentialMat(src_pts, dst_pts, src_K, cv2.RANSAC, prob=0.99, threshold=threshold)
     print('Inlier number = ', deepcopy(cv_mask).astype(np.float32).sum())
     print('Elapsed time = ', time()-t, '\n')
 
     # 测试 gc-ransac
     print('GC-RANSAC')
     t = time()
-    gc_H, gc_mask = gc.findEssentialMat(src_pts, dst_pts, src_K, dst_K, h1, w1, h2, w2, threshold)
+    gc_H, gc_mask = gc.findEssentialMat(src_pts, dst_pts, src_K, dst_K, h1, w1, h2, w2, threshold=threshold, max_iters=5000)
     print('Inlier number = ', deepcopy(gc_mask).astype(np.float32).sum())
     print('Elapsed time = ', time()-t)
 
@@ -144,8 +143,11 @@ def testEssentialMat(src_pts, dst_pts, src_K, dst_K, h1, w1, h2, w2, threshold=1
 
 
 if __name__ == "__main__":
-    dataset = "head"
+    dataset = "fountain"
     src_img, dst_img = load_test_datasets(dataset)
+
+    src_K = np.loadtxt('img/fountain/fountain1.K')
+    dst_K = np.loadtxt('img/fountain/fountain2.K')
 
     # 创建 ORB 特征提取器
     detetor = cv2.ORB_create(2000)
@@ -159,13 +161,12 @@ if __name__ == "__main__":
     # 特征描述子排序筛选 一半匹配
     matches = sorted(matches, key=lambda x: x.distance)[:len(matches) // 2]
 
-    # 绘制初始获取的暴力匹配结果
-    draw_detected_feature(keypoints1, keypoints2, src_img, dst_img, matches)
-
+    # 输出初始获取的暴力匹配结果
     print(f"Detect {dataset} features")
     print(f"Features found in src image = {len(keypoints1)}")
     print(f"Features found in dst image = {len(keypoints2)}")
     print(f"Matches number = {len(matches)}\n")
+    draw_detected_feature(keypoints1, keypoints2, src_img, dst_img, matches)
 
     # 根据匹配结果构建点对
     src_pts = np.float32([keypoints1[m.queryIdx].pt for m in matches]).reshape(-1, 2)
@@ -175,6 +176,8 @@ if __name__ == "__main__":
     h2, w2, _ = np.shape(dst_img)
     
     #cv_H, cv_mask, gc_H, gc_mask = testHomography(src_pts, dst_pts, h1, w1, h2, w2, 2.0)
-    cv_H, cv_mask, gc_H, gc_mask = testFundamentalMat(src_pts, dst_pts, h1, w1, h2, w2, 3.0)
-    #cv_H, cv_mask, gc_H, gc_mask = testEssentialMat(src_pts, dst_pts, h1, w1, h2, w2, 3.0)
+    cv_H, cv_mask, gc_H, gc_mask = testFundamentalMat(src_pts, dst_pts, h1, w1, h2, w2, 1.0)
+    #cv_H, cv_mask, gc_H, gc_mask = testEssentialMat(src_pts, dst_pts, src_K, dst_K, h1, w1, h2, w2, 1.0)
+
+    # 绘制 cv-ransac gc-ransac 匹配结果对比图
     draw_compare_matches(keypoints1, keypoints2, matches, src_img, dst_img, cv_H, cv_mask, gc_H, gc_mask, True)
