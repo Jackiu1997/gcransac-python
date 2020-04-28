@@ -62,31 +62,14 @@ class SolverHomographyFourPoint(SolverEngine):
 			y2 = point[3]
 
 			# 参数矩阵设置
-			minus_weight_times_x1 = -weight * x1
-			minus_weight_times_y1 = -weight * y1
-			weight_times_x2 = weight * x2
-			weight_times_y2 = weight * y2
-
-			coefficients[row_idx, 0] = minus_weight_times_x1
-			coefficients[row_idx, 1] = minus_weight_times_y1
-			coefficients[row_idx, 2] = -weight
-			coefficients[row_idx, 3] = 0
-			coefficients[row_idx, 4] = 0
-			coefficients[row_idx, 5] = 0
-			coefficients[row_idx, 6] = weight_times_x2 * x1
-			coefficients[row_idx, 7] = weight_times_x2 * y1
-			inhomogeneous[row_idx] = -weight_times_x2
+			coefficients[row_idx] = np.array(
+				[-x1, -y1, -1, 0, 0, 0, x2 * x1, x2 * y1]) * weight
+			inhomogeneous[row_idx] = -weight * x2
 			row_idx += 1
 
-			coefficients[row_idx, 0] = 0
-			coefficients[row_idx, 1] = 0
-			coefficients[row_idx, 2] = 0
-			coefficients[row_idx, 3] = minus_weight_times_x1
-			coefficients[row_idx, 4] = minus_weight_times_y1
-			coefficients[row_idx, 5] = -weight
-			coefficients[row_idx, 6] = weight_times_y2 * x1
-			coefficients[row_idx, 7] = weight_times_y2 * y1
-			inhomogeneous[row_idx] = -weight_times_y2
+			coefficients[row_idx] = np.array(
+				[0, 0, 0, -x1, -y1, -1, y2 * x1, y2 * y1]) * weight
+			inhomogeneous[row_idx] = -weight * y2
 			row_idx += 1
 
 		# 参数矩阵 coefficients 和 Y inhomogeneous

@@ -79,7 +79,7 @@ def __normalizeCorrespondences(points, intrinsics_src, intrinsics_dst):
 
 
 """ 用于特征点匹配，对应矩阵求解的函数 """
-def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf=0.99, max_iters=10000):
+def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf=0.95, max_iters=10000):
     """ 单应矩阵求解
     
     参数
@@ -133,7 +133,7 @@ def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf=0
                                             [16, 8, 4, 2],  # 网格层, 最细网格的单元是有维度的
                                             estimator.sampleSize(),  # 最小样本数目
                                             w1, h1, w2, h2,
-                                            sampler_length=0.5)  # 完全混合到全局采样的长度（即 0.5*<point number> 迭代次数）
+                                            sampler_length=0.5)
     local_optimization_sampler = UniformSampler(points) # 局部优化采样器用于局部优化
     # 检查样本是否成功初始化
     if not main_sampler.initialized or not local_optimization_sampler.initialized:
@@ -171,7 +171,7 @@ def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf=0
     return H, mask
 
 
-def findFundamentalMat(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf=0.99, max_iters=10000):
+def findFundamentalMat(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf=0.95, max_iters=10000):
     """ 基础矩阵求解
 
     参数
@@ -217,14 +217,15 @@ def findFundamentalMat(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, co
     ''' GC-RANSAC过程 '''
     # 设置模型估计器和模型
     estimator = EstimatorFundamental(SolverFundamentalMatrixEightPoint,
-                                     SolverFundamentalMatrixEightPoint)
+                                     SolverFundamentalMatrixEightPoint,
+                                     minimum_inlier_ratio_in_validity_check=0.5)
     model = FundamentalMatrix()
 
     # 设置全局样本和LO局部优化样本
     main_sampler = ProgressiveNapsacSampler(points,
                                             [16, 8, 4, 2],          # 网格层, 最细网格的单元是有维度的
                                             estimator.sampleSize(), # 最小样本数目
-                                            w1, h1, w2, h2)         # 完全混合到全局采样的长度（即 0.5*<point number> 迭代次数）
+                                            w1, h1, w2, h2)
     local_optimization_sampler = UniformSampler(points)             # 局部优化采样器用于局部优化
     # 检查样本是否成功初始化
     if not main_sampler.initialized or not local_optimization_sampler.initialized:
@@ -262,7 +263,7 @@ def findFundamentalMat(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, co
     return F, mask
 
 
-def findEssentialMat(src_points, dst_points, src_K, dst_K, h1, w1, h2, w2, threshold=1.0, conf = 0.99, max_iters = 10000):
+def findEssentialMat(src_points, dst_points, src_K, dst_K, h1, w1, h2, w2, threshold=1.0, conf = 0.95, max_iters = 10000):
     """ 基础矩阵求解
 
     参数
@@ -324,7 +325,7 @@ def findEssentialMat(src_points, dst_points, src_K, dst_K, h1, w1, h2, w2, thres
     main_sampler = ProgressiveNapsacSampler(points,
                                             [16, 8, 4, 2],          # 网格层, 最细网格的单元是有维度的
                                             estimator.sampleSize(), # 最小样本数目
-                                            w1, h1, w2, h2)         # 完全混合到全局采样的长度（即 0.5*<point number> 迭代次数）
+                                            w1, h1, w2, h2)
     local_optimization_sampler = UniformSampler(points)             # 局部优化采样器用于局部优化
     # 检查样本是否成功初始化
     if not main_sampler.initialized or not local_optimization_sampler.initialized:

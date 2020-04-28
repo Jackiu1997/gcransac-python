@@ -126,9 +126,9 @@ class SolverFundamentalMatrixSevenPoint(SolverEngine):
 		for root in real_roots:
 			lambda_ = root
 			s = f1[8] * root + f2[8]
-			mu = 1.0 / s
 			# normalize each matrix, so that F(3,3) (~fmatrix[8]) == 1
 			if m.fabs(s) > 1e-20:
+				mu = 1.0 / s
 				lambda_ *= mu
 				for i in range(8):
 					f[i] = f1[i] * lambda_ + f2[i] * mu

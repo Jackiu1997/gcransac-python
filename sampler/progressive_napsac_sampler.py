@@ -139,16 +139,20 @@ class ProgressiveNapsacSampler(Sampler):
             subset = self.prosac_sampler.sample(pool, sample_size)
             return subset
 
-        # 在超球上局部采样，仅选择一个点作为中心
+        # Selection of the sphere center
+        # 1: Let pi be a random point. ? e.g., selected by PROSAC.
+        # 在超球上局部采样，仅选择一个点作为中心 
         center_point = self.one_point_prosac_sampler.sample(pool, 1)
         if len(center_point) == 0:
             return []
 
+        # 2: ti := ti + 1
         # 获取选定的起始点
         initial_point = pool[center_point[0]]     # 选中点集合的中心
         self.hits_per_point[initial_point] += 1   # 增加选定点的命中次数
         hits = self.hits_per_point[initial_point]
 
+        # Semi-random sample Mti of size m:
         # 获取 P-NAPSAC 的样本大小
         subset_size_progressive_napsac = self.subset_size_per_point[initial_point]
         while (hits > self.growth_function_progressive_napsac[subset_size_progressive_napsac - 1] and
@@ -184,7 +188,7 @@ class ProgressiveNapsacSampler(Sampler):
             subset.append(neighbors[subset_size_progressive_napsac - 1])    # 离起始点最远的相邻点
 
             for i in range(sample_size - 2):
-                subset[i] = neighbors[subset[i]]               # 用点的索引替换相邻索引
+                subset[i] = neighbors[subset[i]]                # 用点的索引替换相邻索引
                 self.hits_per_point[subset[i]] += 1             # 增加每个选择点的命中率
             self.hits_per_point[subset[sample_size - 2]] += 1   # 增加每个选择点的命中率
             return subset

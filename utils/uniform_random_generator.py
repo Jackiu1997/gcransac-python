@@ -53,4 +53,4 @@ class UniformRandomGenerator:
 
     def __getRandomNumber(self):
         """ 产生一个均匀随机数 """
-        return random.uniform(self.range_min, self.range_max+1)
+        return random.randint(self.range_min, self.range_max)

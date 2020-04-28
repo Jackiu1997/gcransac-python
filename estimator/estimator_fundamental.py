@@ -1,4 +1,5 @@
 import math as m
+import sys
 
 import numpy as np
 import numpy.linalg as linalg
@@ -13,7 +14,6 @@ from solver import (SolverFundamentalMatrixEightPoint,
 
 from .estimator import Estimator
 from .estimator_homography import EstimatorHomography
-import sys
 
 
 class EstimatorFundamental(Estimator):
@@ -22,9 +22,7 @@ class EstimatorFundamental(Estimator):
     def __init__(self,
                  minimalSolver,
                  nonMinimalSolver,
-                 minimum_inlier_ratio_in_validity_check=0.5,
-                 use_degensac=False,
-                 homography_threshold=2.0):
+                 minimum_inlier_ratio_in_validity_check=0.5):
         super().__init__()
         # 用于估计最小样本模型的估计器
         self.minimal_solver = minimalSolver()
@@ -32,11 +30,6 @@ class EstimatorFundamental(Estimator):
         self.non_minimal_solver = minimalSolver()
         # 通过有效性测试所需的内点比率的下限
         self.minimum_inlier_ratio_in_validity_check = minimum_inlier_ratio_in_validity_check
-        # 是否使用 DEGENSAC 的标志，DEGENSAC处理模型的点来自单个平面或几乎来自单个平面的情况
-        self.use_degensac = use_degensac
-        # DEGENSAC 中决定一个采样是否退化的阈值
-        self.homography_threshold = homography_threshold
-        self.squared_homography_threshold = homography_threshold ** 2
 
     def sampleSize(self):
         """ 估计模型所需的最小样本的大小 """
@@ -104,7 +97,6 @@ class EstimatorFundamental(Estimator):
         return self.__sampsonDistance(point, model.descriptor)
 
     ''' 检查模型是否有效 '''
-    # TODO: fix model check all wrong bug
     def isValidModel(self,
                      model,
                      data=None,
@@ -138,7 +130,6 @@ class EstimatorFundamental(Estimator):
         inlier_number = 0
         descriptor = model.descriptor
         squared_threshold = threshold ** 2
-        passed = False
 
         # 遍历由 sampson 距离确定的内点
         for idx in inliers:
@@ -146,191 +137,9 @@ class EstimatorFundamental(Estimator):
             if self.__symmetricEpipolarDistance(data[idx], descriptor) < squared_threshold:
                 inlier_number += 1
                 if inlier_number >= minimum_inlier_number:
-                    passed = True
-                    break
-        if not passed:
-            return False
+                    return True
+        return False
 
-        # 通过检查模型是否接近单个平面来验证模型
-        if self.use_degensac:
-            return self.__applyDegensac(model,
-                                        data,
-                                        inliers,
-                                        minimal_sample,
-                                        threshold)
-
-        return True
-
-    def __applyDegensac(self, model, data, inliers, minimal_sample, threshold):
-        """ 评估 H-degenerate 样本试验，必要时使用DEGENSAC
-
-        参数
-        ----------
-        model : Model
-            需要检查的模型
-        data : numpy
-            输入的数据点集
-        inliers : list
-            需要检查的模型的内点
-        minimal_sample : int
-            样本点的数目
-        threshold : float
-            决定内点和外点的阈值
-
-        返回
-        ----------
-        bool
-            模型是否接近单个平面
-        """
-        # 可能的三元组点
-        triplets = [[0, 1, 2],
-                    [3, 4, 5],
-                    [0, 1, 6],
-                    [3, 4, 6],
-                    [2, 5, 6]]
-        number_of_triplets = 5                  # 待测三元组数目
-        fundamental_matrix = model.descriptor   # 最小样本的基本矩阵
-
-        # 对估计基本矩阵进行奇异值分解
-        U, Sigma, V = np.linalg.svd(model.descriptor, full_matrices=True)
-        # 计算目标图像中的外极
-        epipole = U[0:3, -1] / U
-        
-        # 极柱交叉生成矩阵的计算
-        epipolar_cross = np.array([[0, -epipole[2], epipole[1]],
-                                   [epipole[2], 0, -epipole[0]],
-                                   [-epipole[1], epipole[0], 0]])
-        A = np.dot(epipolar_cross, model.descriptor)
-
-        # 决定样本是否 H-degenerate 的标志
-        h_degenerate_sample = False
-        best_homography_model = Homography()
-
-        # 遍历样本中的点的三元组
-        for triplet_idx in range(number_of_triplets):
-            point_1_idx = minimal_sample[triplets[triplet_idx][0]]
-            point_2_idx = minimal_sample[triplets[triplet_idx][1]]
-            point_3_idx = minimal_sample[triplets[triplet_idx][2]]
-
-            point_1 = data[point_1_idx]
-            point_2 = data[point_2_idx]
-            point_3 = data[point_3_idx]
-
-            point_1_1 = np.array([point_1[0], point_1[1], 1])
-            point_2_1 = np.array([point_1[2], point_1[3], 1])
-            point_1_2 = np.array([point_2[0], point_2[1], 1])
-            point_2_2 = np.array([point_2[2], point_2[3], 1])
-            point_1_3 = np.array([point_3[0], point_3[1], 1])
-            point_2_3 = np.array([point_3[2], point_3[3], 1])
-
-            # 计算每个点的外极端点的叉积
-            point_1_cross_epipole = np.cross(point_2_1, epipole)
-            point_2_cross_epipole = np.cross(point_2_2, epipole)
-            point_3_cross_epipole = np.cross(point_2_3, epipole)
-
-            b = np.array([np.dot(np.cross(point_2_1, np.dot(A, point_1_1)).T, point_1_cross_epipole) / linalg.norm(point_1_cross_epipole),
-                          np.dot(np.cross(point_2_2, np.dot(A, point_1_2)).T, point_2_cross_epipole) / linalg.norm(point_2_cross_epipole),
-                          np.dot(np.cross(point_2_3, np.dot(A, point_1_3)).T, point_3_cross_epipole) / linalg.norm(point_3_cross_epipole)])
-
-            M = np.vstack((point_1_1, point_1_2, point_1_3))
-            
-            homography = A - np.dot(epipole, (np.dot(linalg.inv(M), b)).T)
-
-            # 与隐含单应矩阵一致的内点的个数
-            inlier_number = 3
-            for i in range(self.sampleSize()):
-                # 获取最小样本的点序号
-                idx = minimal_sample[i]
-
-                # 检查该点是否不包括在当前三元组中，若是则不必计算误差
-                if idx == point_1_idx or idx == point_2_idx or idx == point_3_idx:
-                    continue
-            
-                # 计算重投影误差
-                point = data[idx]
-                x1 = point[0]
-                y1 = point[1]
-                x2 = point[2]
-                y2 = point[3]
-
-                # Calculating H * p
-                t1 = homography(0, 0) * x1 + homography(0, 1) * y1 + homography(0, 2)
-                t2 = homography(1, 0) * x1 + homography(1, 1) * y1 + homography(1, 2)
-                t3 = homography(2, 0) * x1 + homography(2, 1) * y1 + homography(2, 2)
-                # 计算投影点和原点的差
-                d1 = x2 - (t1 / t3)
-                d2 = y2 - (t2 / t3)
-                # 计算重投影误差的平方
-                squared_residual = d1 ** 2 + d2 ** 2
-
-                # 如果二次投影的平方误差小于阈值，记点为内点
-                if squared_residual < squared_homography_threshold:
-                    inlier_number += 1
-
-            # 如果至少有5个点对应关系与单应变换一致，则样本 H-degenerate
-            if inlier_number >= 5:
-                best_homography_model.descriptor = homography
-                h_degenerate_sample = True
-                break
-
-        if h_degenerate_sample:
-            # 定义单应矩阵估计器 用于计算残差，估计单应模型
-            homography_estimator = EstimatorHomography(SolverHomographyFourPoint,
-                                                       SolverHomographyFourPoint)
-
-            # 迭代基本矩阵的内点，并选择那些是单应矩阵的内点
-            homography_inliers = []
-            for inlier_idx in inliers:
-                if homography_estimator.squaredResidual(data[inlier_idx], best_homography_model) < squared_homography_threshold:
-                    homography_inliers.append(inlier_idx)
-
-            # 如果单应矩阵没有足够的内点来估计，则终止
-            if len(homography_inliers) < homography_estimator.nonMinimalSampleSize():
-                return False
-
-            # 从提供的内点估计单应矩阵，非最小样本拟合的单应矩阵作为参考
-            homographies = homography_estimator.estimateModelNonminimal(data,
-                                                                        homography_inliers,
-                                                                        len(homography_inliers))
-            if len(homographies) == 0:
-                return False
-
-            # 局部GC-RANSAC，通过平面和视差算法使用确定的单应矩阵
-            sampler = UniformSampler(data)
-
-            estimator = EstimatorFundamental(SolverFundamentalMatrixPlaneParallax,
-                                             SolverFundamentalMatrixEightPoint,
-                                             minimum_inlier_ratio_in_validity_check=0.0,
-                                             use_degensac=False)
-            estimator.minimal_solver.setHomography(homographies[0].descriptor)
-
-            gcransac = GCRANSAC()
-            gcransac.settings.threshold = threshold
-            gcransac.settings.spatial_coherence_weight = 0
-            gcransac.settings.confidence = 0.99
-            gcransac.settings.neighborhood_sphere_radius = 8
-
-            lo_gc_model, lo_gc_inliers = gcransac.run(data,
-                                                      estimator,
-                                                      sampler,
-                                                      sampler,
-                                                      None)
-
-            # 如果由更多的内点，则更新模型参数
-            if len(lo_gc_inliers) > len(inliers):
-                model = lo_gc_model
-
-        return True, model
-
-    def __enforceRankTwoConstraint(self, model):
-        # 对基本矩阵进行奇异值分解
-        U, Sigma, V = np.linalg.svd(model.descriptor, full_matrices=True)
-        # 使最后一个奇异值为零
-        diagonal = np.diag(Sigma)
-        diagonal[2, 2] = 0.0
-        # 从SVD分解中求出基本矩阵，使用新的奇异值
-        model.descriptor = U * diagonal * V.T
-        
     ''' 距离计算工具函数 '''
     def __sampsonDistance(self, point, descriptor):
         """ 点对应与本质矩阵的 sampson 距离 """

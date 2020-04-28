@@ -35,20 +35,14 @@ def draw_compare_matches(kps1, kps2, matches, img1, img2, cv_H, cv_mask, gc_H, g
 
     plt.figure(figsize=(12, 8))
     # draw match lines for cv2-ransac
-    draw_params = dict(matchColor=(255, 255, 0),
-                       singlePointColor=None,
-                       matchesMask=cv_mask.ravel().tolist(),
-                       flags=2)
+    draw_params = dict(matchesMask=cv_mask.ravel().tolist(), flags=2)
     img_out = cv2.drawMatches(img1, kps1, img2, kps2, matches, None, **draw_params)
     ax1 = plt.subplot(2, 1, 1)
     plt.title("CV2-RANSAC")
     plt.imshow(img_out)
 
     # draw match lines for gc-ransac
-    draw_params = dict(matchColor=(255, 255, 0),
-                       singlePointColor=None,
-                       matchesMask=gc_mask.ravel().tolist(),
-                       flags=2)
+    draw_params = dict(matchesMask=gc_mask.ravel().tolist(), flags=2)
     img_out = cv2.drawMatches(img1, kps1, img2, kps2, matches, None, **draw_params)
     ax2 = plt.subplot(2, 1, 2)
     plt.title("GC-RANSAC")
@@ -143,14 +137,14 @@ def testEssentialMat(src_pts, dst_pts, src_K, dst_K, h1, w1, h2, w2, threshold=1
 
 
 if __name__ == "__main__":
-    dataset = "fountain"
+    dataset = "adam"
     src_img, dst_img = load_test_datasets(dataset)
 
     src_K = np.loadtxt('img/fountain/fountain1.K')
     dst_K = np.loadtxt('img/fountain/fountain2.K')
 
     # 创建 ORB 特征提取器
-    detetor = cv2.ORB_create(2000)
+    detetor = cv2.ORB_create(4000)
     # 提取 ORB 角点特征点 keypoints，特征点提取区域局部图像 descriptions
     keypoints1, descriptions1 = detetor.detectAndCompute(src_img, None)
     keypoints2, descriptions2 = detetor.detectAndCompute(dst_img, None)
@@ -171,13 +165,16 @@ if __name__ == "__main__":
     # 根据匹配结果构建点对
     src_pts = np.float32([keypoints1[m.queryIdx].pt for m in matches]).reshape(-1, 2)
     dst_pts = np.float32([keypoints2[m.trainIdx].pt for m in matches]).reshape(-1, 2)
-    # 获取图像长宽信息
+    # 获取图像长宽信息 
     h1, w1, _ = np.shape(src_img)
     h2, w2, _ = np.shape(dst_img)
     
-    #cv_H, cv_mask, gc_H, gc_mask = testHomography(src_pts, dst_pts, h1, w1, h2, w2, 2.0)
-    cv_H, cv_mask, gc_H, gc_mask = testFundamentalMat(src_pts, dst_pts, h1, w1, h2, w2, 1.0)
+    cv_H, cv_mask, gc_H, gc_mask = testHomography(src_pts, dst_pts, h1, w1, h2, w2, 2.0)
+    #cv_H, cv_mask, gc_H, gc_mask = testFundamentalMat(src_pts, dst_pts, h1, w1, h2, w2, 2.0)
     #cv_H, cv_mask, gc_H, gc_mask = testEssentialMat(src_pts, dst_pts, src_K, dst_K, h1, w1, h2, w2, 1.0)
 
     # 绘制 cv-ransac gc-ransac 匹配结果对比图
+    # 归一化变换矩阵
+    gc_H = gc_H * (1 / gc_H[2,2])
+    print(gc_H - cv_H)
     draw_compare_matches(keypoints1, keypoints2, matches, src_img, dst_img, cv_H, cv_mask, gc_H, gc_mask, True)
