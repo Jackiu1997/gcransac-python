@@ -121,6 +121,8 @@ class GCRANSAC:
         last_the_best_score = Score()
         so_far_the_best_inliers = []
 
+        unsucessful_iteration = 0
+
         # 初始化采样池
         pool = [i for i in range(self.point_number)]
 
@@ -146,24 +148,20 @@ class GCRANSAC:
                 continue
 
             for model in models:
+                unsucessful_iteration += 1
                 # wk ← Compute the support of θk
                 score, inliers = self.scoring_function.getScore(points,
                                                                 model,
                                                                 self.estimator,
                                                                 self.settings.threshold,
                                                                 so_far_the_best_score)
-                '''
                 # 检查模型是否有效，无效则重新评估
-                result = self.estimator.isValidModel(model,
-                                                     data=points,
-                                                     inliers=inliers,
-                                                     minimal_sample=sample,
-                                                     threshold=self.settings.threshold)
-                if isinstance(result, tuple):
-                    model = result[1]
-                elif not result:
+                if not self.estimator.isValidModel(model,
+                                                   data=points,
+                                                   inliers=inliers,
+                                                   minimal_sample=sample,
+                                                   threshold=self.settings.threshold):
                     continue
-                '''
 
                 # if wk > w∗ then
                 # 	θ∗, L∗, w∗ ← θk, Lk, wk
@@ -172,20 +170,21 @@ class GCRANSAC:
                     so_far_the_best_model = model
                     so_far_the_best_score = score
                     so_far_the_best_inliers = inliers
+                    unsucessful_iteration = 0
                     # 更新最大迭代数
                     self.max_iteration = self.__getIterationNumber(so_far_the_best_score.inlier_number)
 
-                    do_local_optimization = self.statistics.iteration_number > self.settings.min_iteration_number_before_lo and\
-						so_far_the_best_score.inlier_number > self.sample_number
-
-                    '''
                     # µ21 = µ2/µ1 < lo_conf
                     # 决定是否需要局部优化
                     if last_the_best_score.inlier_number != 0:
                         u2 = self.__getConfidenceNumber(so_far_the_best_score.inlier_number)
                         u1 = self.__getConfidenceNumber(last_the_best_score.inlier_number)
                         u21 = u2 / u1
-                        do_local_optimization = True if u21 > 1.1 else do_local_optimization'''
+                        do_local_optimization = True if u21 > 1.1 else do_local_optimization
+
+            if unsucessful_iteration >= 100 and so_far_the_best_score.inlier_number != 0:
+                do_local_optimization = True
+                unsucessful_iteration = 0
             
             # if do_local_optimization then
             if do_local_optimization and self.settings.do_local_optimization:
@@ -248,8 +247,6 @@ class GCRANSAC:
         Model, list, Score
             局部优化最佳模型，最佳内点，最佳得分
         """
-        if self.statistics.graph_cut_number >= self.settings.max_graph_cut_number:
-            return None
         self.statistics.graph_cut_number += 1
         self.statistics.local_optimization_number += 1
 
@@ -394,11 +391,11 @@ class GCRANSAC:
     # H(|L∗|, µ)
     def __getIterationNumber(self, inlier_number):
         """ 计算当前内点数目期望的迭代数目 """
-        Pi = (inlier_number / self.point_number) ** self.estimator.sampleSize()
-        if Pi < sys.float_info.epsilon:
+        inlier_ratio = float(inlier_number) / self.point_number  # η
+        if inlier_ratio ** self.estimator.sampleSize() < sys.float_info.epsilon:
             return sys.maxsize
         log1 = m.log(1- self.settings.confidence)
-        log2 = m.log(1.0 - Pi)
+        log2 = m.log(1.0 - inlier_ratio ** self.estimator.sampleSize())
         return int(log1 / log2) + 1
 
     def __getConfidenceNumber(self, inlier_number):
