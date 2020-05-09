@@ -7,7 +7,7 @@ from estimator import (EstimatorEssential, EstimatorFundamental,
                        EstimatorHomography)
 from model import *
 from neighbor import GridNeighborhoodGraph
-from sampler import ProgressiveNapsacSampler, UniformSampler
+from sampler import ProgressiveNapsacSampler, UniformSampler, ProsacSampler
 from solver import (SolverEssentialMatrixEightPoint,
                     SolverEssentialMatrixFivePointStewenius,
                     SolverFundamentalMatrixEightPoint,
@@ -222,10 +222,13 @@ def findFundamentalMat(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, co
     model = FundamentalMatrix()
 
     # 设置全局样本和LO局部优化样本
+    main_sampler = ProsacSampler(points, estimator.sampleSize())
+    '''
     main_sampler = ProgressiveNapsacSampler(points,
                                             [16, 8, 4, 2],          # 网格层, 最细网格的单元是有维度的
                                             estimator.sampleSize(), # 最小样本数目
                                             w1, h1, w2, h2)
+                                            '''
     local_optimization_sampler = UniformSampler(points)             # 局部优化采样器用于局部优化
     # 检查样本是否成功初始化
     if not main_sampler.initialized or not local_optimization_sampler.initialized:
