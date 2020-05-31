@@ -10,4 +10,4 @@ This is a paper project built with python. The former paper is Graph-Cut RANSAC,
 
 ---
 ### Package Required
-python-opencv, numpy, matplotlib, maxflow
+opencv-python, numpy, matplotlib, PyMaxflow, scipy, sympy
