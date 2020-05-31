@@ -59,6 +59,13 @@ class EstimatorFundamental(Estimator):
         models = self.minimal_solver.estimateModel(data,
                                                    sample,
                                                    sample_size)
+        # 对极约束检验 
+        for model in models:
+            if not self.__isOrientationValid(model.descriptor,
+                                             data,
+                                             sample,
+                                             sample_size):
+                models.remove(model)
         return models
 
     def estimateModelNonminimal(self, data, sample, sample_number, weights=None):
@@ -86,6 +93,13 @@ class EstimatorFundamental(Estimator):
                                                        sample,
                                                        sample_number,
                                                        weights=weights)
+        # 对极约束检验 
+        for model in models:
+            if not self.__isOrientationValid(model.descriptor,
+                                             data,
+                                             sample,
+                                             sample_number):
+                models.remove(model)
         return models
     
     def residual(self, point, model):
@@ -125,6 +139,7 @@ class EstimatorFundamental(Estimator):
         bool
             模型是否有效
         """
+        return True
         # 当使用对称极距而不是 Sampson 距离时，也应该是内点的最小数
         minimum_inlier_number = max(self.sampleSize(), len(inliers) * self.minimum_inlier_ratio_in_validity_check)
         inlier_number = 0
@@ -161,4 +176,55 @@ class EstimatorFundamental(Estimator):
         x2_f = np.dot(x2.T, descriptor)
         x2_f_x1 = np.dot(x2_f, x1)
 
-        return x2_f_x1 ** 2 * (1 / (f_x1[0] ** 2 + f_x1[1] ** 2) + 1 / (x2_f[0] ** 2 + x2_f[1] ** 2))
+        return x2_f_x1 ** 2 * (1 / (f_x1[0] ** 2 + f_x1[1] ** 2) + 1 / (x2_f[0] ** 2 + x2_f[1] ** 2))\
+
+    ''' 对极约束函数 Oriented epipolar constraints '''
+    def __getEpipole(self, fundamental_matrix):
+        epsilon = sys.float_info.epsilon
+        epipole =  np.cross(fundamental_matrix[0], fundamental_matrix[2])
+
+        for i in range(3):
+            if (epipole[i] > epsilon) or (epipole[i] < -epsilon):
+                return epipole
+
+        epipole = np.cross(fundamental_matrix[1], fundamental_matrix[2])
+        return epipole
+
+    def __getOrientationSignum(self, fundamental_matrix, epipole, point):
+        signum1 = fundamental_matrix[0, 0] * point[2] + fundamental_matrix[1, 0] * point[3] + fundamental_matrix[2, 0]
+        signum2 = epipole[1] - epipole[2] * point[1]
+        return signum1 * signum2
+
+    def __isOrientationValid(self, fundamental_matrix, data, sample, sample_size):
+        """ 检查朝向约束是否有效 
+        
+        参数
+        ---------
+        fundamental_matrix : numpy
+            基础矩阵
+        data : numpy
+            数据点集合
+        sample : list
+            样本点序号列表
+        sample_size : int
+            样本点数目
+        
+        返回
+        ---------
+        bool
+            朝向约束是有效
+        """
+        epipole = self.__getEpipole(fundamental_matrix)
+
+        if sample == None:
+            sample = [i for i in range(sample_size)]
+        # 获取样本中第一个点的方向标志
+        signum2 = self.__getOrientationSignum(fundamental_matrix, epipole, data[sample[0]])
+        for i in range(sample_size):
+            # 获取样本中第 i 个点的方向标志
+            signum1 = self.__getOrientationSignum(fundamental_matrix, epipole, data[sample[i]])
+            # 符号应该相等，否则，基本矩阵无效
+            if signum2 * signum1 < 0:
+                return False
+
+        return True

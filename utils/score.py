@@ -7,8 +7,7 @@ class Score:
         self.value = 0.0         # 得分
 
     def __lt__(self, v):
-        return self.value < v.value and\
-            self.inlier_number < v.inlier_number
+        return self.value < v.value
 
     def __gt__(self, v):
         return self.value > v.value
@@ -80,3 +79,49 @@ class MSACScoringFunction:
                 return score, inliers
 
         return score, inliers
+
+
+class RansacScoringFunction:
+
+    def __init__(self):
+        pass
+
+    def getScore(self,
+                 points,
+                 model,
+                 estimator,
+                 threshold):
+        """ 求解模型对应的评估得分
+        
+        参数
+        ----------
+        points : numpy
+            输入的数据点集
+        model : Model
+            当前模型参数
+        estimator : Estimator
+            模型的估计器
+        threshold : float
+            决定内点和外点的阈值
+        best_score : Score
+            目前的最佳模型得分
+
+        返回
+        ----------
+        Score, list
+            当前模型参数的评估得分
+            当前模型参数的对应内点
+        """
+        inliers = []            # 选择的内点集合
+        
+        # 遍历所有点，计算残差平方
+        point_number = len(points)
+        squared_threshold = threshold ** 2
+        for point_idx in range(0, point_number):
+            # 计算点对模型的残差
+            squared_residual = estimator.squaredResidual(points[point_idx], model)
+            # 如果残差小于阈值，则将其存储为内点，并增加得分
+            if squared_residual < squared_threshold:
+                inliers.append(point_idx)
+
+        return len(inliers), inliers

@@ -7,7 +7,7 @@ from estimator import (EstimatorEssential, EstimatorFundamental,
                        EstimatorHomography)
 from model import *
 from neighbor import GridNeighborhoodGraph
-from sampler import ProgressiveNapsacSampler, UniformSampler
+from sampler import ProgressiveNapsacSampler, UniformSampler, ProsacSampler
 from solver import (SolverEssentialMatrixEightPoint,
                     SolverEssentialMatrixFivePointStewenius,
                     SolverFundamentalMatrixEightPoint,
@@ -79,7 +79,11 @@ def __normalizeCorrespondences(points, intrinsics_src, intrinsics_dst):
 
 
 """ 用于特征点匹配，对应矩阵求解的函数 """
+<<<<<<< HEAD
 def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf=0.95, max_iters=10000):
+=======
+def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf=0.95, max_iters=10000, sampler=None):
+>>>>>>> feature#test-iteration
     """ 单应矩阵求解
     
     参数
@@ -129,11 +133,25 @@ def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf=0
     model = Homography()
 
     # 设置全局样本和LO局部优化样本
+<<<<<<< HEAD
     main_sampler = ProgressiveNapsacSampler(points,
                                             [16, 8, 4, 2],  # 网格层, 最细网格的单元是有维度的
                                             estimator.sampleSize(),  # 最小样本数目
                                             w1, h1, w2, h2,
                                             sampler_length=0.5)
+=======
+    main_sampler = None
+    if sampler == "Uniform":
+        main_sampler = UniformSampler(points)
+    elif sampler == "PROSAC":
+        main_sampler = ProsacSampler(points, estimator.sampleSize())
+    else:
+        main_sampler = ProgressiveNapsacSampler(points,
+                                                [16, 8, 4, 2],  # 网格层, 最细网格的单元是有维度的
+                                                estimator.sampleSize(),  # 最小样本数目
+                                                w1, h1, w2, h2,
+                                                sampler_length=0.5)
+>>>>>>> feature#test-iteration
     local_optimization_sampler = UniformSampler(points) # 局部优化采样器用于局部优化
     # 检查样本是否成功初始化
     if not main_sampler.initialized or not local_optimization_sampler.initialized:
@@ -160,10 +178,7 @@ def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf=0
                                   local_optimization_sampler,
                                   neighborhood_graph)
 
-    print(f'Applied number of local optimizations = {gcransac.statistics.local_optimization_number}')
-    print(f'Applied number of graph-cuts = {gcransac.statistics.graph_cut_number}')
-    print(f'Applied number of graph-cuts-better = {gcransac.statistics.graph_cut_better_number}')
-    print(f'Number of iterations = {gcransac.statistics.iteration_number}')
+    print(f'iterations Number = {gcransac.statistics.iteration_number}')
 
     # 获取特征点匹配结果（变换矩阵 和 模型对应内点）
     H = model.descriptor
@@ -217,7 +232,11 @@ def findFundamentalMat(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, co
     ''' GC-RANSAC过程 '''
     # 设置模型估计器和模型
     estimator = EstimatorFundamental(SolverFundamentalMatrixEightPoint,
+<<<<<<< HEAD
                                      SolverFundamentalMatrixEightPoint,
+=======
+                                     SolverFundamentalMatrixSevenPoint,
+>>>>>>> feature#test-iteration
                                      minimum_inlier_ratio_in_validity_check=0.5)
     model = FundamentalMatrix()
 
@@ -252,10 +271,7 @@ def findFundamentalMat(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, co
                                   local_optimization_sampler,
                                   neighborhood_graph)
 
-    print(f'Applied number of local optimizations = {gcransac.statistics.local_optimization_number}')
-    print(f'Applied number of graph-cuts = {gcransac.statistics.graph_cut_number}')
-    print(f'Applied number of graph-cuts-better = {gcransac.statistics.graph_cut_better_number}')
-    print(f'Number of iterations = {gcransac.statistics.iteration_number}')
+    print(f'Iterations Number = {gcransac.statistics.iteration_number}')
 
     # 获取GC-RANSAC结果（变换矩阵 和 模型对应内点）
     F = model.descriptor
@@ -353,10 +369,7 @@ def findEssentialMat(src_points, dst_points, src_K, dst_K, h1, w1, h2, w2, thres
                                   local_optimization_sampler,
                                   neighborhood_graph)
 
-    print(f'Applied number of local optimizations = {gcransac.statistics.local_optimization_number}')
-    print(f'Applied number of graph-cuts = {gcransac.statistics.graph_cut_number}')
-    print(f'Applied number of graph-cuts-better = {gcransac.statistics.graph_cut_better_number}')
-    print(f'Number of iterations = {gcransac.statistics.iteration_number}')
+    print(f'iterations Number = {gcransac.statistics.iteration_number}')
 
     # 获取GC-RANSAC结果（变换矩阵 和 模型对应内点）
     E = model.descriptor

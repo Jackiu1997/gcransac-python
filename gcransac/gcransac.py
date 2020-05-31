@@ -118,8 +118,11 @@ class GCRANSAC:
         # 记录全局的最佳模型，得分，内点集合
         so_far_the_best_model = Model()
         so_far_the_best_score = Score()
-        last_the_best_score = Score()
         so_far_the_best_inliers = []
+        conf2 = 0
+        conf1 = 0
+
+        unsucessful_iteration = 0
 
         unsucessful_iteration = 0
 
@@ -146,8 +149,10 @@ class GCRANSAC:
             models = self.estimator.estimateModel(points, sample)
             if len(models) == 0:
                 continue
-
+            
+            self.statistics.iteration_number += len(models) - 1
             for model in models:
+                unsucessful_iteration += 1
                 # wk ← Compute the support of θk
                 score, inliers = self.scoring_function.getScore(points,
                                                                 model,
@@ -166,7 +171,6 @@ class GCRANSAC:
                 # 	θ∗, L∗, w∗ ← θk, Lk, wk
                 unsucessful_iteration += 1
                 if so_far_the_best_score < score:
-                    last_the_best_score = so_far_the_best_score
                     so_far_the_best_model = model
                     so_far_the_best_score = score
                     so_far_the_best_inliers = inliers
@@ -174,18 +178,25 @@ class GCRANSAC:
                     # 更新最大迭代数
                     self.max_iteration = self.__getIterationNumber(so_far_the_best_score.inlier_number)
 
-                    do_local_optimization = self.statistics.iteration_number > self.settings.min_iteration_number_before_lo and\
-						so_far_the_best_score.inlier_number > self.sample_number
-
-                    '''
                     # µ21 = µ2/µ1 < lo_conf
                     # 决定是否需要局部优化
+<<<<<<< HEAD
                     if last_the_best_score.inlier_number != 0:
                         u2 = self.__getConfidenceNumber(so_far_the_best_score.inlier_number)
                         u1 = self.__getConfidenceNumber(last_the_best_score.inlier_number)
                         u21 = u2 / u1
                         do_local_optimization = True if u21 > 1.1 else do_local_optimization'''
             if unsucessful_iteration >= 10:
+=======
+                    conf1 = conf2
+                    conf2 = self.__getConfidenceNumber(so_far_the_best_score.inlier_number, self.statistics.iteration_number)
+                    if conf1 != 0:
+                        conf21 = conf2 / conf1
+                        do_local_optimization = True if conf21 > 0.1 else do_local_optimization
+
+            # 超过一百次未局部优化，则进行一次局部优化
+            if unsucessful_iteration >= 100 and so_far_the_best_score.inlier_number != 0:
+>>>>>>> feature#test-iteration
                 do_local_optimization = True
                 unsucessful_iteration = 0
             
@@ -401,11 +412,11 @@ class GCRANSAC:
         log2 = m.log(1.0 - inlier_ratio ** self.estimator.sampleSize())
         return int(log1 / log2) + 1
 
-    def __getConfidenceNumber(self, inlier_number):
+    def __getConfidenceNumber(self, inlier_number, kth_iteration):
         """ 计算当前模型的内点置信概率 """
         inlier_ratio = float(inlier_number) / self.point_number  # η
         # µ = 1 − 10^k * log(1 − η^m)
         confidenceNumber = 1 - \
-                10 ** (self.max_iteration *
+                10 ** (kth_iteration *
                     m.log(1 - inlier_ratio ** self.estimator.sampleSize()))
         return confidenceNumber
