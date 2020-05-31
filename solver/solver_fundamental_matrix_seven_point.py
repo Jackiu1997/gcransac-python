@@ -116,14 +116,18 @@ class SolverFundamentalMatrixSevenPoint(SolverEngine):
 		c[3] = f1[0] * t0 - f1[1] * t1 + f1[2] * t2
 
 		# 解三次方程；可以有1到3个根
-		real_roots = np.roots(c)
+		roots = np.roots(c)
+		real_roots = []
+		for root in roots:
+			if not isinstance(root, complex):
+				real_roots.append(root)
 		if len(real_roots) < 1 or len(real_roots) > 3:
-			return None
+			return []
 
 		models = []
-		f = np.ones(9)
 		# 对每个实根求解基础矩阵
 		for root in real_roots:
+			f = np.ones(9)
 			lambda_ = root
 			s = f1[8] * root + f2[8]
 			# normalize each matrix, so that F(3,3) (~fmatrix[8]) == 1

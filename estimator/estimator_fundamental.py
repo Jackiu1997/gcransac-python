@@ -139,6 +139,7 @@ class EstimatorFundamental(Estimator):
         bool
             模型是否有效
         """
+        return True
         # 当使用对称极距而不是 Sampson 距离时，也应该是内点的最小数
         minimum_inlier_number = max(self.sampleSize(), len(inliers) * self.minimum_inlier_ratio_in_validity_check)
         inlier_number = 0

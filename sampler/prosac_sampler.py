@@ -48,7 +48,7 @@ class ProsacSampler(Sampler):
         #                                  N - i
         T_n = self.ransac_convergence_iterations
         for i in range(self.sample_size):
-            T_n *= self.sample_size - i / (self.point_number - i)
+            T_n *= (self.sample_size - i) / (self.point_number - i)
 
         T_n_prime = 1
         # compute values using recurrent relation
@@ -68,8 +68,9 @@ class ProsacSampler(Sampler):
             T_n = Tn_plus1
             T_n_prime = self.growth_function[i]
 
-        self.largest_sample_size = self.sample_size;  # PROSAC 中最大样本集合点数
-        self.subset_size = np.shape(container)[0]     # 当前采样池的点集大小		
+        self.largest_sample_size = self.sample_size  # PROSAC 中最大样本集合点数
+        #self.subset_size = np.shape(container)[0]     # 当前采样池的点集大小
+        self.subset_size = self.sample_size     # 当前采样池的点集大小		
 
         # 初始化随机数产生器
         self.random_generator.resetGenerator(0, self.subset_size - 1)
