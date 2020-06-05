@@ -79,11 +79,7 @@ def __normalizeCorrespondences(points, intrinsics_src, intrinsics_dst):
 
 
 """ 用于特征点匹配，对应矩阵求解的函数 """
-<<<<<<< HEAD
-def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf=0.95, max_iters=10000):
-=======
 def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf=0.95, max_iters=10000, sampler=None):
->>>>>>> feature#test-iteration
     """ 单应矩阵求解
     
     参数
@@ -133,13 +129,6 @@ def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf=0
     model = Homography()
 
     # 设置全局样本和LO局部优化样本
-<<<<<<< HEAD
-    main_sampler = ProgressiveNapsacSampler(points,
-                                            [16, 8, 4, 2],  # 网格层, 最细网格的单元是有维度的
-                                            estimator.sampleSize(),  # 最小样本数目
-                                            w1, h1, w2, h2,
-                                            sampler_length=0.5)
-=======
     main_sampler = None
     if sampler == "Uniform":
         main_sampler = UniformSampler(points)
@@ -151,7 +140,6 @@ def findHomography(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, conf=0
                                                 estimator.sampleSize(),  # 最小样本数目
                                                 w1, h1, w2, h2,
                                                 sampler_length=0.5)
->>>>>>> feature#test-iteration
     local_optimization_sampler = UniformSampler(points) # 局部优化采样器用于局部优化
     # 检查样本是否成功初始化
     if not main_sampler.initialized or not local_optimization_sampler.initialized:
@@ -232,11 +220,7 @@ def findFundamentalMat(src_points, dst_points, h1, w1, h2, w2, threshold=1.0, co
     ''' GC-RANSAC过程 '''
     # 设置模型估计器和模型
     estimator = EstimatorFundamental(SolverFundamentalMatrixEightPoint,
-<<<<<<< HEAD
                                      SolverFundamentalMatrixEightPoint,
-=======
-                                     SolverFundamentalMatrixSevenPoint,
->>>>>>> feature#test-iteration
                                      minimum_inlier_ratio_in_validity_check=0.5)
     model = FundamentalMatrix()
 

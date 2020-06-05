@@ -180,14 +180,6 @@ class GCRANSAC:
 
                     # µ21 = µ2/µ1 < lo_conf
                     # 决定是否需要局部优化
-<<<<<<< HEAD
-                    if last_the_best_score.inlier_number != 0:
-                        u2 = self.__getConfidenceNumber(so_far_the_best_score.inlier_number)
-                        u1 = self.__getConfidenceNumber(last_the_best_score.inlier_number)
-                        u21 = u2 / u1
-                        do_local_optimization = True if u21 > 1.1 else do_local_optimization'''
-            if unsucessful_iteration >= 10:
-=======
                     conf1 = conf2
                     conf2 = self.__getConfidenceNumber(so_far_the_best_score.inlier_number, self.statistics.iteration_number)
                     if conf1 != 0:
@@ -196,7 +188,6 @@ class GCRANSAC:
 
             # 超过一百次未局部优化，则进行一次局部优化
             if unsucessful_iteration >= 100 and so_far_the_best_score.inlier_number != 0:
->>>>>>> feature#test-iteration
                 do_local_optimization = True
                 unsucessful_iteration = 0
             

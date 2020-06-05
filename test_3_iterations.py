@@ -54,5 +54,5 @@ if __name__ == "__main__":
         else:
             print('GC-RANSAC')
             H, mask = gc.findHomography(src_pts, dst_pts, h1, w1, h2, w2, threshold=threshold, conf=0.99, max_iters=10000)
-        print('Inliers Number = ', deepcopy(mask).astype(np.float32).sum(), '-' , np.shape(src_pts)[0])
+        print('Inliers Number = ', deepcopy(mask).astype(np.float32).sum())
         print('Error = ', getReprojectionError(vpts, H), '\n')

@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+from matplotlib import pyplot as plt
 
 
 """ 误差计算模块（重投影、Sampson） """
@@ -27,9 +28,11 @@ def getSampsonError(vpts, M):
 
 """ 对比信息绘制模块 """
 def draw_detected_feature(kps1, kps2, img1, img2, matches):
-    img1 = cv2.drawKeypoints(img1, kps1, None, (0, 255, 0), 2)
-    img2 = cv2.drawKeypoints(img2, kps2, None, (0, 255, 0), 2)
-    img_out = cv2.drawMatches(img1, kps1, img2, kps2, matches, None, flags=2)
+    img1_copy = img1.copy()
+    img2_copy = img2.copy()
+    img1_copy = cv2.drawKeypoints(img1_copy, kps1, None, (0, 255, 0), 2)
+    img2_copy = cv2.drawKeypoints(img2_copy, kps2, None, (0, 255, 0), 2)
+    img_out = cv2.drawMatches(img1_copy, kps1, img2_copy, kps2, matches, None, flags=2)
     return img_out
 
 
@@ -42,12 +45,16 @@ def draw_compare_matches(kps1, kps2, matches, img1, img2, M, mask, cmp_M):
     dst_m = cv2.perspectiveTransform(pts, M)
 
     # blue is M estimated, green is ground truth estimated
-    img2 = cv2.polylines(img2, [np.int32(dst_m)], True, (0, 0, 255), 3, cv2.LINE_AA)
-    img2 = cv2.polylines(img2, [np.int32(dst_cmp)], True, (0, 255, 0), 3, cv2.LINE_AA)
+    img_cmp = img2.copy()
+    img_cmp = cv2.polylines(img_cmp, [np.int32(dst_m)], True, (255, 255, 0), 3, cv2.LINE_AA)
+    img_cmp = cv2.polylines(img_cmp, [np.int32(dst_cmp)], True, (0, 255, 0), 3, cv2.LINE_AA)
 
     # draw match lines for M
-    draw_params = dict(matchesMask=mask.ravel().tolist(), flags=2)
-    img_out = cv2.drawMatches(img1, kps1, img2, kps2, matches, None, **draw_params)
+    draw_params = dict(matchColor=(255, 0, 0),
+                       singlePointColor=None,
+                       matchesMask=mask.ravel().tolist(),
+                       flags=2)
+    img_out = cv2.drawMatches(img1, kps1, img_cmp, kps2, matches, None, **draw_params)
 
     return img_out
 

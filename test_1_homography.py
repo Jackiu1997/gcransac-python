@@ -15,11 +15,16 @@ from utils_helper import *
 'city', 'Eiffel', 'ExtremeZoom', 'graf', 'LePoint1', 'LePoint2', 'LePoint3', 'WhiteBoard'
 '''
 if __name__ == "__main__":
-    dataset = 'adam'
+    dataset = 'BruggeTower'
     src_img, dst_img, gt_M, vpts = load_homogr_datasets(dataset)
 
     # 创建 ORB 特征提取器
-    detetor = cv2.ORB_create(2000)
+    # 根据图像大小设定特征点提取器
+    src_max = max(np.shape(src_img))
+    dst_max = max(np.shape(dst_img))
+    detet_size = (max(src_max, dst_max) // 500 + 1) * 1000
+    detetor = cv2.ORB_create(detet_size)
+    
     # 提取 ORB 角点特征点 keypoints，特征点提取区域局部图像 descriptions
     keypoints1, descriptions1 = detetor.detectAndCompute(src_img, None)
     keypoints2, descriptions2 = detetor.detectAndCompute(dst_img, None)
@@ -40,9 +45,13 @@ if __name__ == "__main__":
     print(f"Detect {dataset} features")
     print(f"Features found in src image = {len(keypoints1)}")
     print(f"Features found in dst image = {len(keypoints2)}")
-    print(f"Matches number = {len(matches)}", '\n')
+    print(f"Matches number = {len(matches)}")
 
-    threshold = 1.0
+    # 根据图像大小设定阈值
+    threshold = (max(src_max, dst_max) // 1000 + 1) * 1.0
+    print(f"Threshold = {threshold}", '\n')
+
+    # 进行RANSAC特征点匹配估计对比测试
     match_img_list = []
     H, mask = None, None
     for i in range(3):

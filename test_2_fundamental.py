@@ -15,11 +15,16 @@ from utils_helper import *
 'leafs', 'plant', 'rotunda', 'shout', 'valbonne', 'wall', 'wash', 'zoom'
 '''
 if __name__ == "__main__":
-    dataset = 'head'
+    dataset = 'zoom'
     src_img, dst_img, gt_M, vpts = load_kusvod2_datasets(dataset)
 
     # 创建 ORB 特征提取器
-    detetor = cv2.xfeatures2d.SIFT_create(2000)
+    # 根据图像大小设定特征点提取器
+    src_max = max(np.shape(src_img))
+    dst_max = max(np.shape(dst_img))
+    detet_size = (max(src_max, dst_max) // 500 + 1) * 1000
+    detetor = cv2.xfeatures2d.SIFT_create(detet_size)
+
     # 提取 ORB 角点特征点 keypoints，特征点提取区域局部图像 descriptions
     keypoints1, descriptions1 = detetor.detectAndCompute(src_img, None)
     keypoints2, descriptions2 = detetor.detectAndCompute(dst_img, None)
@@ -45,7 +50,7 @@ if __name__ == "__main__":
     threshold = 1.0
     match_img_list = []
     F, mask = None, None
-    for i in range(3):
+    for i in range(2):
         if i == 0:
             print('FM-RANSAC')
             F, mask = cv2.findFundamentalMat(src_pts, dst_pts, cv2.FM_RANSAC, confidence=0.95, ransacReprojThreshold=threshold)
